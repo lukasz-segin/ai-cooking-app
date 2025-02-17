@@ -12,6 +12,43 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 
+from pydantic_settings import BaseSettings
+
+
+class SettingsFromEnvironment(BaseSettings):
+    APP_NAME: str = "ai-cooking-app"
+
+    DEBUG: bool = False
+
+    LOG_LEVEL: str = "INFO"
+
+    # POSTGRES_NAME: str | None
+    # POSTGRES_USER: str | None
+    # POSTGRES_PASSWORD: str | None
+    # POSTGRES_HOST: str | None
+    # POSTGRES_PORT: int = 5432
+
+    # CACHE_REDIS_DB: str | None = None
+    # CACHE_REDIS_HOST: str | None = None
+    # CACHE_REDIS_PASSWORD: str | None = None
+    # CACHE_REDIS_PORT: int = 6379
+    # CACHE_REDIS_PREFIX: str = "ai-cooking-app"
+    # CACHE_REDIS_TIMEOUT: int = 60
+    
+    STATICS_SRC: str | None = None
+    ALLOWED_HOSTS: str = ""
+
+    SECRET_KEY: str = ""
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+
+
+
+
+config = SettingsFromEnvironment()
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -20,12 +57,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure--mq#64+@mit%39tu%mbdj-p+u5uxz=h27w2z(4&dka)6*&h@w5'
+SECRET_KEY = config.SECRET_KEY
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config.DEBUG
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = config.ALLOWED_HOSTS.split(",")
 
 
 # Application definition
@@ -130,3 +167,40 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Logging
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'ai_cooking_app': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+#         'LOCATION': 'unique-snowflake',
+#     }
+# }
+
+# Global Variables
+# DEFAULT_TIMEOUT = config.DEFAULT_TIMOUT
+# DEFAULT_CACHE_TIMEOUT = config.CACHE_REDIS_TIMEOUT
+# STATICS_SRC = config.STATICS_SRC
