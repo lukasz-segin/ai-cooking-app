@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
 from pydantic_settings import BaseSettings
 
@@ -22,11 +23,11 @@ class SettingsFromEnvironment(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
 
-    # POSTGRES_NAME: str | None
-    # POSTGRES_USER: str | None
-    # POSTGRES_PASSWORD: str | None
-    # POSTGRES_HOST: str | None
-    # POSTGRES_PORT: int = 5432
+    POSTGRES_DB: str | None
+    POSTGRES_USER: str | None
+    POSTGRES_PASSWORD: str | None
+    POSTGRES_HOST: str | None
+    POSTGRES_PORT: int = 5432
 
     # CACHE_REDIS_DB: str | None = None
     # CACHE_REDIS_HOST: str | None = None
@@ -39,6 +40,10 @@ class SettingsFromEnvironment(BaseSettings):
     ALLOWED_HOSTS: str = ""
 
     SECRET_KEY: str = ""
+
+    OPENAI_API_KEY: str = ""
+    GOOGLE_SERVICE_ACCOUNT_FILE: str = "service-account.json"
+    DOCUMENTS_DIR: str = "documents"
 
     class Config:
         env_file = ".env"
@@ -81,6 +86,7 @@ INSTALLED_APPS = [
 
     # Your apps
     'recipes',
+    'documents_processor',
 ]
 
 MIDDLEWARE = [
@@ -120,8 +126,12 @@ WSGI_APPLICATION = 'ai_cooking_project.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config.POSTGRES_DB,
+        'USER': config.POSTGRES_USER,
+        'PASSWORD': config.POSTGRES_PASSWORD,
+        'HOST': config.POSTGRES_HOST,
+        'PORT': config.POSTGRES_PORT,
     }
 }
 
@@ -204,3 +214,22 @@ LOGGING = {
 # DEFAULT_TIMEOUT = config.DEFAULT_TIMOUT
 # DEFAULT_CACHE_TIMEOUT = config.CACHE_REDIS_TIMEOUT
 # STATICS_SRC = config.STATICS_SRC
+
+DOCUMENTS_DIR = BASE_DIR / 'documents'
+DOCUMENTS_DIR.mkdir(exist_ok=True)  # Create the directory if it doesn't exist
+
+# Google Drive API Settings
+GOOGLE_SERVICE_ACCOUNT_FILE = BASE_DIR / 'service-account.json'
+
+# OpenAI Settings
+OPENAI_API_KEY = config.OPENAI_API_KEY
+
+# REST Framework Settings
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+    'DEFAULT_PARSER_CLASSES': [
+        'rest_framework.parsers.JSONParser',
+    ],
+}

@@ -1,28 +1,39 @@
 # Use Python 3.12 as the base image
 FROM python:3.12-slim
 
-# Prevent Python from writing pyc files and buffer stdout/stderr
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
-# Set the working directory
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Poetry
+ENV POETRY_HOME=/opt/poetry
+RUN curl -sSL https://install.python-poetry.org | python3 - \
+    && cd /usr/local/bin \
+    && ln -s /opt/poetry/bin/poetry
+
+# Set working directory
 WORKDIR /app
 
-# Copy README.md first
-COPY README.md .
+# Copy poetry files
 COPY pyproject.toml poetry.lock ./
 
-# Upgrade pip, install Poetry, and install project dependencies without creating a virtual environment
-RUN pip install --upgrade pip && \
-    pip install poetry && \
-    poetry config virtualenvs.create false && \
-    poetry install --no-root --only main
+# Configure poetry and install dependencies
+RUN poetry config virtualenvs.create false \
+    && poetry install --no-interaction --no-ansi --no-root
 
-# Copy project files into the container
-COPY . /app/
+# Copy the project
+COPY . .
 
 # Expose port 8000
 EXPOSE 8000
 
-# Start the application using Gunicorn
-CMD ["gunicorn", "ai_cooking_project.wsgi:application", "--bind", "0.0.0.0:8000"]
+# Command to run the application
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

@@ -39,6 +39,21 @@ ai-cooking-app/
 │   ├── serializers.py      # DRF serializers
 │   ├── urls.py             # API endpoints
 │   └── views.py            # API views
+├── documents_processor/     # App for processing documents
+│   ├── __init__.py
+│   ├── apps.py
+│   ├── migrations/
+│   ├── models.py           # Document models
+│   ├── serializers.py
+│   ├── services/           # Document processing services
+│   │   ├── file_processor_service.py
+│   │   ├── google_drive_service.py
+│   │   ├── openai_service.py
+│   │   ├── text_splitter_service.py
+│   │   └── vector_service.py
+│   ├── urls.py
+│   └── views.py
+├── documents/              # Directory for document storage
 ├── Dockerfile              # Dockerfile for containerization
 ├── docker-compose.local.yml # Local development configuration
 ├── pyproject.toml          # Poetry dependencies and config
@@ -50,11 +65,122 @@ ai-cooking-app/
 
 The application provides the following REST API endpoints:
 
+### Recipes
 - `GET /api/recipes/` - List all recipes
 - `POST /api/recipes/` - Create a new recipe
 - `GET /api/recipes/{id}/` - Retrieve a specific recipe
 - `PUT /api/recipes/{id}/` - Update a specific recipe
 - `DELETE /api/recipes/{id}/` - Delete a specific recipe
+
+### Document Processing
+- `POST /api/documents/process_document/` - Process a PDF document
+- `GET /api/documents/{document_id}/` - Get document processing status
+
+## Document Processing
+
+The application includes a document processor that can:
+- Process PDF files containing recipes from local storage or Google Drive
+- Extract text content using PyPDF2 or Google Drive's conversion capabilities
+- Split content into manageable chunks
+- Generate embeddings using OpenAI's text-embedding-3-large model (3072 dimensions)
+- Store documents and their vector embeddings in PostgreSQL with pgvector
+
+### Setting up Document Processing
+
+1. **Configure Required Services:**
+
+   Ensure you have the following credentials:
+   - OpenAI API key (for generating embeddings)
+   - Google Drive API credentials (for enhanced document processing)
+
+2. **Google Drive Setup:**
+
+   - Create a service account in Google Cloud Console
+   - Download the service account key as JSON
+   - Place it in your project root as `service-account.json`
+   - Add the following to your environment variables:
+     ```
+     GOOGLE_SERVICE_ACCOUNT_FILE=service-account.json
+     ```
+
+3. **Process a Document:**
+
+   You can process documents in two ways:
+
+   a) From local storage:
+   ```bash
+   curl -X POST http://localhost:8000/api/documents/process_document/ \
+      -H "Content-Type: application/json" \
+      -d '{"file_name": "your-document.pdf", "use_google_drive": true}'
+   ```
+
+   b) From Google Drive:
+   ```bash
+   curl -X POST http://localhost:8000/api/documents/process_drive_document/ \
+        -H "Content-Type: application/json" \
+        -d '{"drive_file_id": "your-google-drive-file-id"}'
+   ```
+
+   The system will:
+   1. Create a StoredDocument entry with 'pending' status
+   2. Process the PDF using Google Drive's conversion (for better text extraction)
+   3. Split the text into chunks
+   4. Generate embeddings using OpenAI (3072-dimensional vectors)
+   5. Store the chunks with embeddings in the database
+   6. Update the document status to 'processed'
+
+3. **Monitor Processing:**
+
+   Check the document status using:
+   ```bash
+   curl http://localhost:8000/api/documents/{document_id}/
+   ```
+
+   Or view processing logs:
+   ```bash
+   docker compose -f docker-compose.local.yml logs -f web
+   ```
+
+### Database Setup
+
+The document processor requires PostgreSQL with pgvector extension. The setup is automatically handled in the Docker environment:
+
+1. The `ankane/pgvector` image is used which includes the pgvector extension
+2. An initialization script creates the vector extension during first startup
+3. Django migrations will create all necessary tables
+
+If you need to reset the database:
+```bash
+# Stop containers and remove volumes
+docker compose -f docker-compose.local.yml down -v
+
+# Rebuild and start
+docker compose -f docker-compose.local.yml up --build
+```
+OR
+```bash
+# Stop all containers and remove volumes
+docker compose -f docker-compose.local.yml down -v
+
+# Remove all images to ensure clean rebuild
+docker rmi $(docker images -q ai-cooking-app-web)
+
+# Rebuild and start with no cache
+docker compose -f docker-compose.local.yml build --no-cache
+docker compose -f docker-compose.local.yml up
+```
+
+If running locally (without Docker), you'll need to:
+1. Install PostgreSQL
+2. Install pgvector extension:
+   ```sql
+   CREATE EXTENSION vector;
+   ```
+3. Create the database and user
+4. Run migrations:
+   ```bash
+   python manage.py migrate
+   ```
 
 ## Environment Variables
 
@@ -64,6 +190,12 @@ For security reasons, the following environment variables should be set in produ
 DJANGO_SECRET_KEY=your-secret-key-here
 DJANGO_DEBUG=False
 DJANGO_ALLOWED_HOSTS=your-domain.com,another-domain.com
+OPENAI_API_KEY=your-openai-api-key
+POSTGRES_DB=ai_cooking
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
 ```
 
 > **Note:** The default development settings use SQLite as the database. For production, consider using PostgreSQL or another production-grade database.
@@ -182,7 +314,8 @@ CMD ["gunicorn", "ai_cooking_project.wsgi:application", "--bind", "0.0.0.0:8000"
 
 ## Contributing
 
-Contributions are welcome! If you'd like to contribute, please fork the repository and submit a pull request. For major changes, please open an issue first to discuss what you would like to change.
+Contributions are welcome! If you'd like to contribute, please fork the repository and submit a pull request. For major changes, please 
+open an issue first to discuss what you would like to change.
 
 ## License
 

@@ -1,19 +1,31 @@
 [tool.poetry]
 name = "ai-cooking-app"
 version = "0.1.0"
-description = ""
-authors = ["Łukasz Segin <l.segin@bankier.pl>"]
-readme = "README.md"
+description = "AI-powered cooking app"
+authors = ["Your Name <your.email@example.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.12"
-django = "^5.0.2"
-djangorestframework = "^3.14.0"
-gunicorn = "^20.1"
-whitenoise = "^6.9.0"
-pydantic = "^2.10.6"
-pydantic-settings = "^2.7.1"
+django = "^5.1.6"
+djangorestframework = "^3.15.2"
+openai = "^1.14.0"
+google-api-python-client = "^2.120.0"
+google-auth = "^2.28.2"
+celery = "^5.3.6"
+pgvector = "^0.2.5"
+python-magic = "^0.4.27"
+whitenoise = "^6.6.0"
+pydantic = "^2.6.4"
+pydantic-settings = "^2.2.1"
+tiktoken = "^0.6.0"
+python-dotenv = "^1.0.1"
+psycopg2-binary = "^2.9.10"
+pypdf2 = "^3.0.1"
 
+[tool.poetry.group.dev.dependencies]
+black = "^24.2.0"
+isort = "^5.13.2"
+flake8 = "^7.0.0"
 
 [build-system]
 requires = ["poetry-core"]
