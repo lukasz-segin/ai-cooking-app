@@ -58,4 +58,22 @@ ehthumbs.db
 Thumbs.db
 
 service-account.json
-documents/
+documents/*
+!documents/.gitkeep
+
+# Local development
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Database
+db.sqlite3
+
+# Static files
+staticfiles/

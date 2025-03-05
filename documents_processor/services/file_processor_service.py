@@ -95,3 +95,73 @@ class FileProcessorService:
             document.status = 'error'
             document.save()
             raise 
+
+    def process_document_with_google_drive_in_batches(self, document_id: str, batch_size: int = 20):
+        """Process a large document by splitting it into smaller batches for Google Drive"""
+        try:
+            document = StoredDocument.objects.get(id=document_id)
+            logger.info(f"Starting to process document {document_id} with Google Drive in batches")
+            document.status = 'processing'
+            document.save()
+            
+            file_path = Path(document.file_path)
+            
+            # Split PDF into smaller PDFs (using PyPDF2 to split)
+            with open(file_path, 'rb') as file:
+                pdf_reader = PyPDF2.PdfReader(file)
+                total_pages = len(pdf_reader.pages)
+                logger.info(f"PDF has {total_pages} pages, processing in batches")
+                
+                chunk_index = 0
+                successful_chunks = 0
+                
+                # Process PDF in batches
+                for batch_start in range(0, total_pages, batch_size):
+                    batch_end = min(batch_start + batch_size, total_pages)
+                    logger.info(f"Processing batch of pages {batch_start+1}-{batch_end}")
+                    
+                    # Create temporary PDF with this batch of pages
+                    pdf_writer = PyPDF2.PdfWriter()
+                    for page_num in range(batch_start, batch_end):
+                        pdf_writer.add_page(pdf_reader.pages[page_num])
+                    
+                    # Save temporary batch PDF
+                    temp_pdf_path = file_path.with_name(f"{file_path.stem}_batch_{batch_start}.pdf")
+                    with open(temp_pdf_path, 'wb') as temp_file:
+                        pdf_writer.write(temp_file)
+                    
+                    # Process this batch with Google Drive
+                    try:
+                        batch_text = self.google_drive_service.process_pdf_with_drive(temp_pdf_path)
+                        batch_chunks = self.text_splitter.split_text(batch_text)
+                        
+                        for chunk_num, chunk in enumerate(batch_chunks):
+                            try:
+                                self.vector_service.store_chunk(
+                                    document=document,
+                                    chunk_text=chunk['text'],
+                                    chunk_index=chunk_index
+                                )
+                                chunk_index += 1
+                                successful_chunks += 1
+                            except Exception as e:
+                                logger.error(f"Error processing chunk {chunk_num} in batch {batch_start}: {e}")
+                                continue
+                        
+                        # Clean up temporary file
+                        temp_pdf_path.unlink()
+                        
+                    except Exception as e:
+                        logger.error(f"Error processing batch {batch_start}-{batch_end}: {e}")
+                        continue
+                
+                final_status = 'processed' if successful_chunks > 0 else 'error'
+                logger.info(f"Document processing completed. Status: {final_status}, Successful chunks: {successful_chunks}")
+                document.status = final_status
+                document.save()
+        
+        except Exception as e:
+            logger.error(f"Error processing document {document_id} with batched Google Drive: {e}")
+            document.status = 'error'
+            document.save()
+            raise 
