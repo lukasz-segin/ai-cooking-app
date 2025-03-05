@@ -99,6 +99,54 @@ class DocumentProcessorViewSet(viewsets.ModelViewSet):
                 "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=False, methods=['post'])
+    def process_with_google_drive_batched(self, request):
+        file_name = request.data.get('file_name')
+        batch_size = int(request.data.get('batch_size', 20))  # Default to 20 pages per batch
+        
+        if not file_name:
+            return Response(
+                {"error": "No file name provided"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Assuming documents are stored in a specific directory
+        file_path = Path(settings.DOCUMENTS_DIR) / file_name
+        
+        if not file_path.exists():
+            return Response(
+                {"error": f"File {file_name} not found in documents directory"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Create StoredDocument with pending status
+        document = StoredDocument.objects.create(
+            file_path=str(file_path),
+            title=file_name,
+            status='pending'
+        )
+
+        # Initialize processor and start batched processing
+        processor = FileProcessorService()
+        try:
+            # Use the batch processing method
+            processor.process_document_with_google_drive_in_batches(
+                str(document.id), 
+                batch_size=batch_size
+            )
+            
+            return Response({
+                "message": "Document processing started with Google Drive (batched mode)",
+                "document_id": document.id,
+                "batch_size": batch_size
+            })
+        except Exception as e:
+            document.status = 'error'
+            document.save()
+            return Response({
+                "error": str(e)
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 @api_view(['GET'])
 def get_document_status(request, document_id):
     try:

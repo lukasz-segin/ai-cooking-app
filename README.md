@@ -114,7 +114,15 @@ The application includes a document processor that can:
       -d '{"file_name": "your-document.pdf", "use_google_drive": true}'
    ```
 
-   b) From Google Drive:
+   b) Process with Google Drive in batches
+   ```bash
+   # Process with Google Drive in batches
+   curl -X POST http://localhost:8000/api/documents/process_with_google_drive_batched/ \
+        -H "Content-Type: application/json" \
+        -d '{"file_name": "your-document.pdf", "batch_size": 15}'
+   ```
+
+   c) From Google Drive:
    ```bash
    curl -X POST http://localhost:8000/api/documents/process_drive_document/ \
         -H "Content-Type: application/json" \
@@ -123,13 +131,13 @@ The application includes a document processor that can:
 
    The system will:
    1. Create a StoredDocument entry with 'pending' status
-   2. Process the PDF using Google Drive's conversion (for better text extraction)
+   2. Process the PDF using either PyPDF2 or Google Drive's conversion
    3. Split the text into chunks
    4. Generate embeddings using OpenAI (3072-dimensional vectors)
    5. Store the chunks with embeddings in the database
    6. Update the document status to 'processed'
 
-3. **Monitor Processing:**
+4. **Monitor Processing:**
 
    Check the document status using:
    ```bash
@@ -181,6 +189,88 @@ If running locally (without Docker), you'll need to:
    ```bash
    python manage.py migrate
    ```
+
+### Using Document Fixtures
+
+The project includes a pre-processed document fixture that contains recipe data, which can be loaded into your database:
+
+1. **Load the Recipe Document Fixture:**
+
+   ```bash
+   # In Docker environment
+   docker compose -f docker-compose.local.yml exec web python manage.py loaddata recipe_book_chunks
+   
+   # In local environment
+   poetry run python manage.py loaddata recipe_book_chunks
+   ```
+
+   This will populate your database with:
+   - A processed recipe document
+   - Document chunks with extracted text
+   - Vector embeddings for semantic search capabilities
+
+2. **Create Your Own Fixtures:**
+
+   After processing your own documents, you can create fixtures to reuse the data:
+
+   ```bash
+   # Export document data as fixture
+   docker compose -f docker-compose.local.yml exec web bash -c "python manage.py dumpdata documents_processor.StoredDocument documents_processor.DocumentChunk --indent 4 > /app/documents_processor/fixtures/your_fixture_name.json"
+   
+   # Load your fixture
+   docker compose -f docker-compose.local.yml exec web python manage.py loaddata your_fixture_name
+   ```
+
+3. **Automate Fixture Loading:**
+
+   To automatically load fixtures when deploying, add the loaddata command to your deployment scripts or Docker entrypoint.
+
+## Django Admin Interface
+
+The project includes a comprehensive Django Admin interface for managing both recipes and document processing:
+
+### Document Management Admin Features
+
+Access the admin interface at [http://localhost:8000/admin/](http://localhost:8000/admin/) after creating a superuser.
+
+1. **Document List View**: 
+   - View all processed documents with their status
+   - See document chunk counts with direct links
+   - Filter by processing status and creation date
+   - Search by title or description
+
+2. **Document Detail View**:
+   - View document metadata and processing status
+   - See inline previews of all chunks within the document
+   - Track processing timestamps
+
+3. **Document Chunk Management**:
+   - Browse all text chunks from processed documents
+   - See content previews with smart truncation
+   - Filter chunks by parent document
+   - View embedding dimensions for each chunk
+   - Navigate between related documents and chunks
+
+This admin interface provides a convenient way to:
+- Monitor document processing status
+- Review extracted content quality
+- Debug processing issues
+- Manage your document database
+
+### Accessing the Admin Interface
+
+1. Create a superuser if you haven't already:
+   ```bash
+   # In Docker
+   docker compose -f docker-compose.local.yml exec web python manage.py createsuperuser
+   
+   # In local environment
+   poetry run python manage.py createsuperuser
+   ```
+
+2. Visit [http://localhost:8000/admin/](http://localhost:8000/admin/) and log in with your credentials
+
+3. Navigate to "Stored documents" or "Document chunks" in the admin panel
 
 ## Environment Variables
 
