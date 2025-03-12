@@ -11,7 +11,7 @@ class OpenAIService:
     def create_embedding(self, text: str) -> list[float]:
         try:
             response = self.client.embeddings.create(
-                model="text-embedding-3-large",
+                model="text-embedding-3-small",
                 input=text
             )
             return response.data[0].embedding
