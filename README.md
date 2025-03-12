@@ -9,6 +9,7 @@
 - **Containerization:** Packaged using Docker and Docker Compose for consistent deployment.
 - **Dependency Management:** Managed with Poetry.
 - **Python Version:** Built using Python 3.12.
+- **AI-Powered Search:** Implements hybrid search combining semantic (vector) and keyword search.
 
 ## Technologies
 
@@ -19,6 +20,9 @@
 - **Gunicorn:** For serving the Django application
 - **WhiteNoise:** For serving static files
 - **Docker & Docker Compose:** For containerization and deployment
+- **PostgreSQL with pgvector:** For storing and querying vector embeddings
+- **OpenAI API:** For generating text embeddings
+- **Google Drive API:** For processing documents from Google Drive
 
 ## Project Structure
 
@@ -71,9 +75,12 @@ The application provides the following REST API endpoints:
 - `GET /api/recipes/{id}/` - Retrieve a specific recipe
 - `PUT /api/recipes/{id}/` - Update a specific recipe
 - `DELETE /api/recipes/{id}/` - Delete a specific recipe
+- `GET /api/recipes/search/?meal_name={query}&limit={limit}` - Search for recipes using hybrid search
 
 ### Document Processing
 - `POST /api/documents/process_document/` - Process a PDF document
+- `POST /api/documents/process_with_google_drive_batched/` - Process a PDF document in batches using Google Drive
+- `GET /api/documents/` - List all processed documents
 - `GET /api/documents/{document_id}/` - Get document processing status
 
 ## Document Processing
@@ -84,6 +91,7 @@ The application includes a document processor that can:
 - Split content into manageable chunks
 - Generate embeddings using OpenAI's text-embedding-3-large model (3072 dimensions)
 - Store documents and their vector embeddings in PostgreSQL with pgvector
+- Enable hybrid search using both vector similarity and full-text search
 
 ### Setting up Document Processing
 
@@ -114,12 +122,21 @@ The application includes a document processor that can:
       -d '{"file_name": "your-document.pdf", "use_google_drive": true}'
    ```
 
-   b) Process with Google Drive in batches
+   b) Process with Google Drive in batches (recommended for larger documents):
    ```bash
    # Process with Google Drive in batches
    curl -X POST http://localhost:8000/api/documents/process_with_google_drive_batched/ \
         -H "Content-Type: application/json" \
         -d '{"file_name": "your-document.pdf", "batch_size": 15}'
+   ```
+   
+   Example response:
+   ```json
+   {
+     "message": "Document processing started with Google Drive (batched mode)",
+     "document_id": "2eff81cf-cc97-4911-a754-374b635c3ba2",
+     "batch_size": 15
+   }
    ```
 
    c) From Google Drive:
@@ -148,6 +165,78 @@ The application includes a document processor that can:
    ```bash
    docker compose -f docker-compose.local.yml logs -f web
    ```
+
+   List all documents:
+   ```bash
+   curl http://localhost:8000/api/documents/
+   ```
+
+
+## Searching Documents
+
+The application implements a hybrid search system that combines vector-based semantic search with traditional full-text search for optimal results.
+
+### Hybrid Search
+
+The search functionality:
+- Uses OpenAI embeddings for semantic understanding
+- Leverages PostgreSQL's full-text search for keyword matching
+- Combines both approaches with a weighted scoring system
+- Falls back to pure vector search when text search yields no results
+
+### Using the Search API
+To search for recipes or documents:
+```bash
+curl -X GET "http://localhost:8000/api/recipes/search/?meal_name=nocna%20owsianka&limit=3"
+```
+
+Example response:
+```json
+{
+  "query": "nocna owsianka",
+  "results_count": 3,
+  "results": [
+    {
+      "chunk_id": 1,
+      "document_id": "2eff81cf-cc97-4911-a754-374b635c3ba2",
+      "document_title": "Nocna owsianka _ AniaGotuje.pl.pdf",
+      "content": "3/5/25, 8:55 PM Nocna owsianka | AniaGotuje.pl \r\nAnia Gotuje...",
+      "chunk_index": 0,
+      "vector_similarity": 0.9124,
+      "text_match_score": 0.753,
+      "combined_score": 0.7826,
+      "search_method": "hybrid"
+    },
+    {
+      "chunk_id": 2,
+      "document_id": "2eff81cf-cc97-4911-a754-374b635c3ba2",
+      "document_title": "Nocna owsianka _ AniaGotuje.pl.pdf",
+      "content": "is/nocna-owsianka 2/4\r\n3/5/25, 8:55 PM Nocna owsianka | AniaGotuje.pl...",
+      "chunk_index": 1,
+      "vector_similarity": 0.8947,
+      "text_match_score": 0.689,
+      "combined_score": 0.7231,
+      "search_method": "hybrid"
+    }
+  ]
+}
+```
+
+### Search Parameters
+- `meal_name` - The search query text
+- `limit` - Maximum number of results to return (default: 5)
+
+### Search Fields in Response
+Each result includes:
+- `chunk_id` - ID of the document chunk
+- `document_id` - ID of the parent document
+- `document_title` - Title of the document
+- `content` - Text content of the chunk
+- `chunk_index` - Index of the chunk within the document
+- `vector_similarity` - Score indicating semantic similarity (0-1, higher is better)
+- `text_match_score` - Score indicating keyword match relevance
+- `combined_score` - Weighted combination of both scores
+- `search_method` - Whether the result was found via "hybrid" or "semantic" search
 
 ### Database Setup
 
@@ -290,7 +379,7 @@ POSTGRES_PORT=5432
 
 > **Note:** The default development settings use SQLite as the database. For production, consider using PostgreSQL or another production-grade database.
 
-## Getting Started
+## Installation and Setup
 
 ### Prerequisites
 
@@ -324,6 +413,7 @@ POSTGRES_PORT=5432
    DJANGO_SECRET_KEY=your-development-secret-key
    DJANGO_DEBUG=True
    DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+   OPENAI_API_KEY=your-openai-api-key
    ```
 
 4. **Run Migrations:**
@@ -401,12 +491,3 @@ The Dockerfile uses Gunicorn to serve the app:
 ```dockerfile
 CMD ["gunicorn", "ai_cooking_project.wsgi:application", "--bind", "0.0.0.0:8000"]
 ```
-
-## Contributing
-
-Contributions are welcome! If you'd like to contribute, please fork the repository and submit a pull request. For major changes, please 
-open an issue first to discuss what you would like to change.
-
-## License
-
-This project is licensed under the [MIT License](LICENSE).

@@ -59,7 +59,7 @@ class Migration(migrations.Migration):
                 ),
                 ("chunk_index", models.PositiveIntegerField()),
                 ("content", models.TextField()),
-                ("embedding", pgvector.django.VectorField(dimensions=3072)),
+                ("embedding", pgvector.django.VectorField(dimensions=1536)),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 (
                     "document",

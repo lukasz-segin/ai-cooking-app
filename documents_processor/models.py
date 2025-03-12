@@ -1,6 +1,7 @@
 from django.db import models
 import uuid
 from pgvector.django import VectorField
+from django.contrib.postgres.search import SearchVectorField
 
 class StoredDocument(models.Model):
     STATUS_CHOICES = [
@@ -25,7 +26,8 @@ class DocumentChunk(models.Model):
     document = models.ForeignKey(StoredDocument, on_delete=models.CASCADE, related_name='chunks')
     chunk_index = models.PositiveIntegerField()
     content = models.TextField()
-    embedding = VectorField(dimensions=3072)
+    embedding = VectorField(dimensions=1536)
+    content_tsv = SearchVectorField(null=True, db_default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
