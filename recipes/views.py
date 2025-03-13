@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from .models import Recipe
 from .serializers import RecipeSerializer
 from .services.recipe_search_service import RecipeSearchService
+from .services.recipe_generator_service import RecipeGeneratorService
+from recipes.models.chat_models import ChatRequest, Message
 
 class RecipeListCreateAPIView(generics.ListCreateAPIView):
     queryset = Recipe.objects.all()
@@ -43,5 +45,41 @@ def search_recipes(request):
     except Exception as e:
         return Response(
             {"error": f"Error performing semantic search: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+@api_view(['POST'])
+def generate_recipe(request):
+    """
+    Generate a new recipe based on provided query, using similar existing recipes.
+    
+    Request Body:
+        query: The recipe name or concept to generate
+        num_examples: (Optional) Number of similar recipes to use as examples (default: 3)
+    """
+    query = request.data.get('query', '')
+    if not query:
+        return Response(
+            {"error": "query parameter is required"}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        num_examples = int(request.data.get('num_examples', '3'))
+    except ValueError:
+        num_examples = 3
+    
+    try:
+        # Initialize the generator service
+        generator_service = RecipeGeneratorService()
+        
+        # Call the generation method (now synchronous)
+        result = generator_service.generate_recipe(query, num_examples=num_examples)
+        
+        return Response(result)
+        
+    except Exception as e:
+        return Response(
+            {"error": f"Error generating recipe: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
