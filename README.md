@@ -423,6 +423,12 @@ POSTGRES_PORT=5432
    poetry run python manage.py migrate
    ```
 
+   With docker:
+   ```bash
+   docker compose -f docker-compose.local.yml exec web python manage.py makemigrations
+   docker compose -f docker-compose.local.yml exec web python manage.py migrate
+   ```
+
 5. **Create a Superuser:**
 
    ```bash
@@ -491,3 +497,77 @@ The Dockerfile uses Gunicorn to serve the app:
 ```dockerfile
 CMD ["gunicorn", "ai_cooking_project.wsgi:application", "--bind", "0.0.0.0:8000"]
 ```
+
+## Recipe Generation
+
+The application includes an AI-powered recipe generation feature that creates new recipes based on existing similar recipes. The generation process:
+
+1. Searches for similar recipes based on your query
+2. Analyzes recipe content from matching documents
+3. Generates a new recipe using the LLM (GPT-4o)
+4. Creates a visual representation of the dish using DALL-E 3
+5. Returns a complete recipe with ingredients, instructions, and an image
+
+### Using the Recipe Generation API
+
+To generate a recipe:
+
+```bash
+curl -X POST http://localhost:8000/api/recipes/generate/ \
+     -H "Content-Type: application/json" \
+     -d '{"query": "nocna owsianka z borówkami", "num_examples": 5}'
+```
+
+Example response:
+```json
+{
+  "status": "success",
+  "recipe": {
+    "id": 1,
+    "title": "Nocna owsianka z borówkami",
+    "description": "Pyszna i pożywna nocna owsianka z borówkami, idealna na szybkie i zdrowe śniadanie.",
+    "instructions": "# Ingredients\n- 100 g płatków owsianych\n- 200 ml mleka lub napoju roślinnego\n- 2 łyżki jogurtu naturalnego\n- 1 łyżka nasion chia\n- 1 łyżka miodu lub syropu z cykorii\n- 100 g borówek\n- 2 łyżki wiórków kokosowych\n\n# Instructions\n1. Do słoika o pojemności około 450 ml wsyp 100 g płatków owsianych.\n2. Dodaj 200 ml mleka lub napoju roślinnego oraz 2 łyżki jogurtu naturalnego.\n3. Wsyp 1 łyżkę nasion chia i 1 łyżkę miodu lub syropu z cykorii.\n4. Całość dokładnie wymieszaj, aby wszystkie składniki były dobrze połączone.\n5. Dodaj 100 g borówek i 2 łyżki wiórków kokosowych na wierzch.\n6. Słoik zakręć i odstaw do lodówki na co najmniej 6 godzin, najlepiej na całą noc.\n\n# Nutritional Information\nCalories: 520\nProtein: 15\nCarbs: 85\nFat: 12\n\nPrep Time: 15 minutes\nCook Time: 0 minutes",
+    "image_url": "https://oaidalleapiprodscus.blob.core.windows.net/private/org-123/user-456/img-789.jpg"
+  },
+  "similar_recipes_used": [
+    {
+      "document_title": "Nocna owsianka _ AniaGotuje.pl.pdf",
+      "similarity_score": 0.5794
+    },
+    {
+      "document_title": "Nocna owsianka w 6 wersjach – ciekawe owsianki do pracy i szkoły – Policzona Szama.pdf",
+      "similarity_score": 0.5675
+    },
+    {
+      "document_title": "Nocna owsianka _ AniaGotuje.pl.pdf", 
+      "similarity_score": 0.567
+    }
+  ],
+  "recipe_query": "nocna owsianka z borówkami"
+}
+```
+
+### Recipe Generation Parameters
+
+- `query` - The recipe name or description to generate (required)
+- `num_examples` - Number of similar recipes to use as examples (default: 3, max: 10)
+
+### Recipe Generation Response Fields
+
+The response includes:
+- `status` - Success or error status
+- `recipe` - The generated recipe with complete details:
+  - `id` - Database ID of the saved recipe
+  - `title` - Recipe title in Polish
+  - `description` - Brief description of the dish
+  - `instructions` - Formatted recipe with ingredients, steps, and nutritional info
+  - `image_url` - URL to the AI-generated image of the dish
+- `similar_recipes_used` - List of reference recipes used for generation
+- `recipe_query` - The original query used for generation
+
+### Notes on Recipe Generation
+
+- The generated recipes are in Polish language
+- Recipes strictly use only ingredients and techniques from the example recipes
+- The feature works best when there are similar recipes already in the database
+- Image generation creates a styled photo of the dish based on the recipe details

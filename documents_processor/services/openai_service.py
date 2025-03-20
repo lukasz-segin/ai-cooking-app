@@ -54,4 +54,39 @@ class OpenAIService:
             
         except Exception as e:
             logger.error(f"Error in OpenAI completion: {e}")
+            raise
+
+    def generate_image(
+        self,
+        prompt: str,
+        size: str = "1024x1024",
+        quality: str = "standard",
+        model: str = "dall-e-3",
+    ) -> str:
+        """
+        Generate image using OpenAI's DALL-E model (synchronous version).
+        
+        Args:
+            prompt: Text description of the image to generate
+            size: Image size (e.g., "1024x1024")
+            quality: Image quality ("standard" or "hd")
+            model: DALL-E model version to use
+            
+        Returns:
+            URL of the generated image
+        """
+        try:
+            logger.info(f"Generating image with prompt: '{prompt[:50]}...' using model {model}")
+            response = self.client.images.generate(
+                model=model,
+                prompt=prompt,
+                size=size,
+                quality=quality,
+                n=1,
+            )
+            image_url = response.data[0].url
+            logger.info(f"Image generated successfully: {image_url}")
+            return image_url
+        except Exception as error:
+            logger.error(f"Error in OpenAI image generation: {error}")
             raise 

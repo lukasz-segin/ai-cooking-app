@@ -82,7 +82,16 @@ class RecipeGeneratorService:
             new_recipe = self._save_recipe_to_database(query, content)
             logger.info(f"Recipe saved with ID: {new_recipe.id}, title: '{new_recipe.title}'")
             
-            # Step 7: Return formatted result
+            # Step 6.5: Generate an image for the recipe
+            logger.info(f"Step 6.5: Generating image for recipe")
+            image_url = self._generate_recipe_image(new_recipe)
+            logger.info(f"Image generated for recipe: {image_url}")
+            
+            # If you have image_url field in your model:
+            new_recipe.image_url = image_url
+            new_recipe.save()
+            
+            # Step 7: Return formatted result with image
             logger.info(f"Step 7: Generation complete, returning recipe data")
             return {
                 "status": "success",
@@ -90,7 +99,8 @@ class RecipeGeneratorService:
                     "id": new_recipe.id,
                     "title": new_recipe.title,
                     "description": new_recipe.description,
-                    "instructions": new_recipe.instructions
+                    "instructions": new_recipe.instructions,
+                    "image_url": image_url  # Add the image URL to the response
                 },
                 "similar_recipes_used": [
                     {
@@ -294,3 +304,49 @@ Upewnij się, że przepis jest praktyczny i bazuje tylko na informacjach z przyk
             logger.info(f"Created error fallback recipe, ID: {new_recipe.id}")
             
         return new_recipe 
+
+    def _generate_recipe_image(self, recipe) -> str:
+        """
+        Generate an image for the recipe using OpenAI's DALL-E model.
+        
+        Args:
+            recipe: Recipe object with title, description, and instructions
+            
+        Returns:
+            URL of the generated image
+        """
+        try:
+            logger.info(f"Generating image for recipe: '{recipe.title}'")
+            
+            # Create a detailed prompt that describes the dish
+            recipe_description = recipe.description if hasattr(recipe, 'description') else ""
+            prompt = f"""
+            A professional, appetizing food photograph of a Polish dish: {recipe.title}.
+            {recipe_description}
+            
+            The image should be a top-down view or slight angle of the beautifully plated dish, 
+            with natural lighting, shallow depth of field, and styled as a professional 
+            food photography shot. Show the prepared dish clearly with appropriate garnishes 
+            and styling elements. No text or watermarks.
+            """
+            
+            # Generate the image
+            image_url = self.openai_service.generate_image(
+                prompt=prompt,
+                size="1024x1024",
+                quality="standard",
+                model="dall-e-3"
+            )
+            
+            # Update the recipe with the image URL if you have an image_url field
+            # If you don't have this field, you'll need to add it to your Recipe model
+            # recipe.image_url = image_url
+            # recipe.save()
+            
+            logger.info(f"Image generated successfully for recipe '{recipe.title}': {image_url}")
+            return image_url
+            
+        except Exception as e:
+            logger.error(f"Error generating image for recipe: {e}")
+            # Return a placeholder or default image URL in case of error
+            return "https://placeholder.com/food-placeholder-image" 
