@@ -1,0 +1,62 @@
+[
+{
+    "model": "recipes.recipe",
+    "pk": 1,
+    "fields": {
+        "title": "Nocna owsianka z czekoladą i orzechami",
+        "description": "Pyszna i pożywna nocna owsianka, idealna na szybkie śniadanie. Połączenie czekolady i orzechów dostarcza nie tylko energii, ale także wyjątkowego smaku.",
+        "instructions": "# Ingredients\n- 70 g płatków owsianych zwykłych lub górskich - około 7 łyżek\n- 200 ml mleka lub napoju roślinnego - 4/5 szklanki\n- 1 łyżka nasion chia - około 10 g\n- 1 łyżka jogurtu naturalnego - do 15 g\n- 1 płaska łyżka kakao - około 7 g\n- 1 łyżka miodu - około 10 g\n- Pół garści orzechów np. nerkowca - około 20 g\n\n# Instructions\n1. Do słoika o pojemności około 450 ml wsyp płatki owsiane oraz nasiona chia.\n2. Wlej mleko lub napój roślinny do słoika.\n3. Dodaj jogurt naturalny i kakao, a następnie dokładnie wymieszaj.\n4. Dodaj miód i ponownie zamieszaj całość.\n5. Na koniec dodaj orzechy i zamieszaj. Zamknij słoik i umieść w lodówce na noc.\n6. Rano owsianka jest gotowa do spożycia. Smacznego!\n\n# Nutritional Information\nCalories: 465\nProtein: Brak danych\nCarbs: Brak danych\nFat: Brak danych\n\nPrep Time: 15 minutes\nCook Time: 0 minutes",
+        "image_url": "https://oaidalleapiprodscus.blob.core.windows.net/private/org-CxaxqO871jLw6OuWYfBkuxWq/user-E8NV1jSFvuJUB2jzjfMixt14/img-vBAvYeomF4aqsn3hnm3wL2si.png?st=2025-03-20T18%3A35%3A12Z&se=2025-03-20T20%3A35%3A12Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=d505667d-d6c1-4a0a-bac7-5c84a87759f8&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-03-20T15%3A35%3A03Z&ske=2025-03-21T15%3A35%3A03Z&sks=b&skv=2024-08-04&sig=NWADEbRRJvimIcVERYH1fSR/L9QUZUMH3McHNUDmKqg%3D",
+        "created_at": "2025-03-20T19:34:54.378Z",
+        "updated_at": "2025-03-20T19:35:12.873Z"
+    }
+},
+{
+    "model": "recipes.recipe",
+    "pk": 2,
+    "fields": {
+        "title": "Nocna owsianka z malinami i kokosem",
+        "description": "Pyszna i łatwa do przyrządzenia nocna owsianka z dodatkiem malin i wiórków kokosowych. Idealne śniadanie lub przekąska na początek dnia.",
+        "instructions": "# Ingredients\n- 100 g płatków owsianych drobnych\n- 5 g nasion chia\n- 30 g jogurtu naturalnego\n- 200 ml mleka (krowiego lub roślinnego)\n- 10 g syropu z cykorii\n- 15 g wiórków kokosowych\n- 50 g malin świeżych lub liofilizowanych\n\n# Instructions\n1. Do miski wsyp płatki owsiane i nasiona chia.\n2. Dodaj jogurt naturalny oraz mleko.\n3. Wlej syrop z cykorii i dokładnie wymieszaj.\n4. Przelej mieszaninę do słoika, przykryj i wstaw do lodówki na noc.\n5. Rano dodaj wiórki kokosowe i maliny do smaku przed podaniem.\n\n# Nutritional Information\nCalories: Brak danych\nProtein: Brak danych\nCarbs: Brak danych\nFat: Brak danych\n\nPrep Time: 15 minutes\nCook Time: 0 minutes",
+        "image_url": "https://oaidalleapiprodscus.blob.core.windows.net/private/org-CxaxqO871jLw6OuWYfBkuxWq/user-E8NV1jSFvuJUB2jzjfMixt14/img-5Lwpp3JzNLchKFHdCFnvTTQM.png?st=2025-03-20T18%3A37%3A51Z&se=2025-03-20T20%3A37%3A51Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=d505667d-d6c1-4a0a-bac7-5c84a87759f8&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-03-20T16%3A48%3A21Z&ske=2025-03-21T16%3A48%3A21Z&sks=b&skv=2024-08-04&sig=QLCNc1a%2BhJRsNlaI/99932eb9hDlre5I9g%2BTiV7h4OA%3D",
+        "created_at": "2025-03-20T19:37:38.669Z",
+        "updated_at": "2025-03-20T19:37:51.773Z"
+    }
+},
+{
+    "model": "recipes.recipe",
+    "pk": 3,
+    "fields": {
+        "title": "Nocna owsianka z owocami i jogurtem",
+        "description": "Szybka i zdrowa nocna owsianka z dodatkiem jogurtu i świeżych owoców na początek dnia.",
+        "instructions": "# Ingredients\n- 70 g płatków owsianych - około 7 łyżek\n- 200 ml mleka - 4/5 szklanki\n- 30 g jogurtu naturalnego - do 30 g\n- 10 g nasion chia - około 1 łyżka\n- 10 g miodu - około 1 łyżka\n- Owoce: maliny, borówki, banan\n\n# Instructions\n1. Szykuj słoik z nakrętką o pojemności około 450 ml.\n2. Wsyp do słoika płatki owsiane, nasiona chia i zalej mlekiem.\n3. Dodaj jogurt i miód, a następnie dokładnie wymieszaj całość.\n4. Dodaj owoce, takie jak banan i maliny.\n5. Zamknij słoik i schowaj do lodówki na minimum 6 godzin lub na całą noc.\n6. Rano przed podaniem można dodać więcej świeżych owoców.\n\n# Nutritional Information\nCalories: 465\nProtein: Brak danych\nCarbs: Brak danych\nFat: Brak danych\n\nPrep Time: 15 minutes\nCook Time: 0 minutes",
+        "image_url": "https://oaidalleapiprodscus.blob.core.windows.net/private/org-CxaxqO871jLw6OuWYfBkuxWq/user-E8NV1jSFvuJUB2jzjfMixt14/img-7tDz65argeGjNAk10swnStgw.png?st=2025-03-20T18%3A40%3A13Z&se=2025-03-20T20%3A40%3A13Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=d505667d-d6c1-4a0a-bac7-5c84a87759f8&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-03-20T16%3A06%3A22Z&ske=2025-03-21T16%3A06%3A22Z&sks=b&skv=2024-08-04&sig=57gec2WGycEWzWlng/5k3DvOQyeJe5Acqirzg3UoYds%3D",
+        "created_at": "2025-03-20T19:39:56.275Z",
+        "updated_at": "2025-03-20T19:40:14.091Z"
+    }
+},
+{
+    "model": "recipes.recipe",
+    "pk": 4,
+    "fields": {
+        "title": "Nocna owsianka z borówkami",
+        "description": "Prosta i zdrowa nocna owsianka z dodatkiem świeżych borówek, idealna na szybkie śniadanie.",
+        "instructions": "# Ingredients\n- 70 g płatków owsianych zwykłych lub górskich\n- 200 ml mleka lub napoju roślinnego\n- 1 łyżka nasion chia\n- 2 łyżki jogurtu naturalnego\n- 1 łyżka miodu\n- 50 g borówek\n\n# Instructions\n1. Umyć dokładnie i osuszyć słoik z nakrętką o pojemności około 450 ml.\n2. Do słoika wsypać płatki owsiane oraz nasiona chia.\n3. Wlać mleko lub napój roślinny (może być zimne, ciepłe lub wrzące).\n4. Dodać jogurt naturalny i miód, a następnie całość zamieszać.\n5. Dodać borówki na wierzch.\n6. Zamknąć słoik i odstawić do lodówki na całą noc.\n\n# Nutritional Information\nCalories: 465\nProtein: Brak danych\nCarbs: Brak danych\nFat: Brak danych\n\nPrep Time: 15 minutes\nCook Time: 0 minutes",
+        "image_url": "https://oaidalleapiprodscus.blob.core.windows.net/private/org-CxaxqO871jLw6OuWYfBkuxWq/user-E8NV1jSFvuJUB2jzjfMixt14/img-t4zvRZ6LVcE9KB4oI2tar538.png?st=2025-03-20T19%3A28%3A51Z&se=2025-03-20T21%3A28%3A51Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=d505667d-d6c1-4a0a-bac7-5c84a87759f8&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-03-20T17%3A24%3A09Z&ske=2025-03-21T17%3A24%3A09Z&sks=b&skv=2024-08-04&sig=bJ2awfmyX1IN8KA9p2KzdKHt0WkjnXTAOuMysQBF4i8%3D",
+        "created_at": "2025-03-20T20:28:34.442Z",
+        "updated_at": "2025-03-20T20:28:52.136Z"
+    }
+},
+{
+    "model": "recipes.recipe",
+    "pk": 5,
+    "fields": {
+        "title": "Nocna owsianka z nutellą",
+        "description": "Pyszna nocna owsianka wzbogacona nutellą, idealna na szybkie i zdrowe śniadanie. Można ją przygotować dzień przed i rano cieszyć się gotowym posiłkiem.",
+        "instructions": "# Ingredients\n- 70 g płatków owsianych zwykłych lub górskich\n- 200 ml mleka lub napoju roślinnego\n- 1 łyżka jogurtu naturalnego - do 15 g\n- 1 łyżka nasion chia - około 10 g\n- 1 łyżka miodu lub erytrolu - około 10 g\n- 2 łyżki nutelli - około 30 g\n\n# Instructions\n1. Słoik z nakrętką umyj dokładnie i osusz. Pojemność słoika powinna wynosić około 450 ml.\n2. Do słoika wsyp 70 g płatków owsianych.\n3. Dodaj 1 łyżkę nasion chia.\n4. Wlej 200 ml mleka lub napoju roślinnego. Mleko może być wrzące, gorące lub zimne. Jeśli używasz wrzątku, poczekaj około 10 minut przed dodaniem reszty składników.\n5. Dodaj 1 łyżkę jogurtu naturalnego.\n6. Dodaj 1 łyżkę miodu lub erytrolu.\n7. Na koniec dodaj 2 łyżki nutelli i całość dokładnie wymieszaj.\n8. Zamknij słoik i wstaw do lodówki na całą noc (minimum 6 godzin).\n\n# Nutritional Information\nCalories: 465\nProtein: Brak danych\nCarbs: Brak danych\nFat: Brak danych\n\nPrep Time: 15 minutes\nCook Time: 0 minutes",
+        "image_url": "https://oaidalleapiprodscus.blob.core.windows.net/private/org-CxaxqO871jLw6OuWYfBkuxWq/user-E8NV1jSFvuJUB2jzjfMixt14/img-9jSqfrNQ7Pde9NcWq1qJp7SE.png?st=2025-03-20T20%3A01%3A26Z&se=2025-03-20T22%3A01%3A26Z&sp=r&sv=2024-08-04&sr=b&rscd=inline&rsct=image/png&skoid=d505667d-d6c1-4a0a-bac7-5c84a87759f8&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2025-03-20T21%3A01%3A26Z&ske=2025-03-21T21%3A01%3A26Z&sks=b&skv=2024-08-04&sig=DDiUjb9SJGyYJhjb3K/36C9gyvdQlAkULM0sxWUMmZI%3D",
+        "created_at": "2025-03-20T21:01:12.276Z",
+        "updated_at": "2025-03-20T21:01:26.342Z"
+    }
+}
+]
