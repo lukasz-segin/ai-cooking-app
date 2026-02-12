@@ -2,8 +2,8 @@
 /**
  * Plugin Name: Fetch Recipes from API (WP Delicious Integration)
  * Description: Fetches recipes from Django API and maps them to WP Delicious plugin format.
- * Version: 2.0
- * Author: Your Name
+ * Version: 2.1
+ * Author: Łukasz Segin
  */
 
 if (!defined('ABSPATH')) {
@@ -93,10 +93,18 @@ function fr_fetch_and_create_recipes() {
         $delicious_meta = fr_map_recipe_to_delicious_meta($recipe);
         $post_title = isset($recipe['title']) ? $recipe['title'] : 'Untitled Recipe';
 
-        // Prepare common post data
+        // POPRAWKA 1: Wypełniamy post_content opisem przepisu
+        // Używamy opisu z API, a jeśli go brak, generujemy prosty tekst.
+        $post_content = isset($recipe['description']) ? $recipe['description'] : '';
+        if (empty($post_content)) {
+            $post_content = 'Przepis wygenerowany automatycznie.';
+        }
+        // Opcjonalnie: opakuj w paragrafy, jak robi to Gutenberg
+        $post_content = '<p>' . nl2br($post_content) . '</p>';
+
         $post_data = array(
             'post_title'   => wp_strip_all_tags($post_title),
-            'post_content' => '', // WP Delicious stores content in meta, not body
+            'post_content' => $post_content,
             'post_status'  => 'draft',
             'post_author'  => 1,
             'post_type'    => 'recipe', // Required for WP Delicious
@@ -157,13 +165,7 @@ function fr_fetch_and_create_recipes() {
             }
         }
     }
-
-    // Store the last run time
     update_option('fr_last_fetch_time', time());
-
-    error_log('=== RECIPE FETCH COMPLETE ===');
-    error_log('Results: Created: ' . $results['created'] . ', Updated: ' . $results['updated'] . ', Errors: ' . $results['errors']);
-
     return $results;
 }
 
@@ -176,15 +178,30 @@ function fr_update_recipe_meta($post_id, $delicious_meta, $api_id, $api_updated_
 
     // 2. Helper fields for filtering/sorting in admin
     update_post_meta($post_id, '_dr_difficulty_level', 'beginner');
+    update_post_meta($post_id, '_dr_best_season', 'summer');
 
-    // Count ingredients for the helper field
+    // POPRAWKA 2: Generowanie listy składników (_dr_recipe_ingredients)
+    // Wtyczka wymaga prostej tablicy z nazwami składników
+    $simple_ingredients = array();
     $ing_count = 0;
-    if (!empty($delicious_meta['recipeIngredients'][0]['ingredients'])) {
-        $ing_count = count($delicious_meta['recipeIngredients'][0]['ingredients']);
-    }
-    update_post_meta($post_id, '_dr_ingredient_count', $ing_count);
 
-    // 3. Synchronization meta data
+    if (!empty($delicious_meta['recipeIngredients'][0]['ingredients'])) {
+        $ingredients_raw = $delicious_meta['recipeIngredients'][0]['ingredients'];
+        $ing_count = count($ingredients_raw);
+
+        foreach ($ingredients_raw as $ing_item) {
+            // Pobieramy samą nazwę składnika
+            if (!empty($ing_item['ingredient'])) {
+                $simple_ingredients[] = $ing_item['ingredient'];
+            }
+        }
+    }
+
+    update_post_meta($post_id, '_dr_ingredient_count', $ing_count);
+    // Zapisujemy tę listę - to kluczowe, czego brakowało w porównaniu do ID 108
+    update_post_meta($post_id, '_dr_recipe_ingredients', $simple_ingredients);
+
+    // 3. Synchronizacja
     update_post_meta($post_id, 'fr_recipe_id', $api_id);
     if (!empty($api_updated_at)) {
         update_post_meta($post_id, 'fr_recipe_updated_at', $api_updated_at);
@@ -235,7 +252,6 @@ function fr_map_recipe_to_delicious_meta($recipe) {
     if (preg_match('/Prep Time:\s*(\d+)/', $raw_instructions, $m)) $prep_time = $m[1];
     if (preg_match('/Cook Time:\s*(\d+)/', $raw_instructions, $m)) $cook_time = $m[1];
 
-    // Build the final array structure
     return [
         'recipeSubtitle'    => '',
         'recipeDescription' => isset($recipe['description']) ? $recipe['description'] : '',
@@ -249,28 +265,19 @@ function fr_map_recipe_to_delicious_meta($recipe) {
         'restTimeUnit'      => 'min',
         'totalDuration'     => (int)$prep_time + (int)$cook_time,
         'totalDurationUnit' => 'min',
-        'bestSeason'        => '',
-        'recipeCalories'    => '', // Can be parsed if API provides it
+        'bestSeason'        => 'summer',
+        'recipeCalories'    => '',
         'noOfServings'      => '4',
-
-        // Nested Ingredients Structure
-        'ingredientTitle'   => 'Składniki', // Polish label
-        'recipeIngredients' => [
-            [
-                'sectionTitle' => '',
-                'ingredients'  => $ingredients_list
-            ]
-        ],
-
-        // Nested Instructions Structure
-        'instructionsTitle' => 'Sposób przygotowania', // Polish label
-        'recipeInstructions'=> [
-            [
-                'sectionTitle' => '',
-                'instruction'  => $instructions_list
-            ]
-        ],
-
+        'ingredientTitle'   => 'Składniki',
+        'recipeIngredients' => [[
+            'sectionTitle' => '',
+            'ingredients'  => $ingredients_list
+        ]],
+        'instructionsTitle' => 'Sposób przygotowania',
+        'recipeInstructions'=> [[
+            'sectionTitle' => '',
+            'instruction'  => $instructions_list
+        ]],
         'recipeNotes'       => 'Wygenerowano automatycznie przez AI Cooking App.',
 
         // Required empty arrays to prevent errors
