@@ -571,3 +571,38 @@ The response includes:
 - Recipes strictly use only ingredients and techniques from the example recipes
 - The feature works best when there are similar recipes already in the database
 - Image generation creates a styled photo of the dish based on the recipe details
+
+## WordPress Plugin Integration (Production Deployment)
+
+The project includes a custom WordPress plugin (`fetch-recipes.php`) designed to automatically pull generated recipes from the Django API and map them into the **WP Delicious** plugin format.
+
+To ensure the integration works correctly in a production environment, you must configure both Django and WordPress as follows:
+
+### 1. Django Configuration (Media URLs)
+Currently, in development, the `recipe_generator_service.py` hardcodes the local image URL (e.g., `http://localhost:8000/media/...`). In production, Django must return a valid, absolute public URL so that WordPress can download the image.
+
+**Action Required:**
+Update your `recipe_generator_service.py` or `.env` file to use a dynamic host domain for generated images:
+```python
+# Instead of hardcoding localhost:8000:
+# local_url = f"http://localhost:8000{settings.MEDIA_URL}{saved_path}"
+
+# Use a dynamic production URL (configured via environment variables):
+domain = getattr(settings, 'PUBLIC_DOMAIN', '[https://api.your-domain.com](https://api.your-domain.com)')
+local_url = f"{domain}{settings.MEDIA_URL}{saved_path}"
+
+```
+
+### 2. WordPress Plugin Configuration
+
+Before deploying the `fetch-recipes` plugin to a production WordPress instance, update the variables inside `fetch-recipes.php`:
+
+* **API Endpoint:** Change `$api_url = 'http://localhost:8000/api/recipes/';` to your production Django API endpoint (e.g., `https://api.your-domain.com/api/recipes/`).
+* *Note: If WordPress and Django share the same internal Docker network, you can use the internal service name (e.g., `http://web:8000/api/recipes/`), provided the Docker network DNS can resolve it.*
+
+
+* **Security (SSL):** The plugin currently disables SSL verification (`'sslverify' => false`) to accommodate local development. In production, change this to `'sslverify' => true` in both instances of `wp_remote_get()` to ensure secure HTTPS communication.
+
+### 3. Media Serving
+
+Ensure your production Django environment (e.g., Nginx, AWS S3, or Gunicorn with WhiteNoise/media setup) correctly serves files from the `/media/` directory to the public internet, otherwise WordPress will fail to download the `image_url` returned by the API.

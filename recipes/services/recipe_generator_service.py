@@ -1,6 +1,11 @@
+import requests
+import uuid
 import logging
 import json
 from typing import Dict, Any, List
+from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 
 from documents_processor.services.openai_service import OpenAIService
 from documents_processor.services.vector_service import VectorService
@@ -303,17 +308,12 @@ Upewnij się, że przepis jest praktyczny i bazuje tylko na informacjach z przyk
             )
             logger.info(f"Created error fallback recipe, ID: {new_recipe.id}")
             
-        return new_recipe 
+        return new_recipe
 
     def _generate_recipe_image(self, recipe) -> str:
         """
-        Generate an image for the recipe using OpenAI's DALL-E model.
-        
-        Args:
-            recipe: Recipe object with title, description, and instructions
-            
-        Returns:
-            URL of the generated image
+        Generate an image for the recipe using OpenAI's DALL-E model,
+        download it, and save it locally.
         """
         try:
             logger.info(f"Generating image for recipe: '{recipe.title}'")
@@ -323,30 +323,45 @@ Upewnij się, że przepis jest praktyczny i bazuje tylko na informacjach z przyk
             prompt = f"""
             A professional, appetizing food photograph of a Polish dish: {recipe.title}.
             {recipe_description}
-            
+
             The image should be a top-down view or slight angle of the beautifully plated dish, 
             with natural lighting, shallow depth of field, and styled as a professional 
             food photography shot. Show the prepared dish clearly with appropriate garnishes 
             and styling elements. No text or watermarks.
             """
-            
-            # Generate the image
-            image_url = self.openai_service.generate_image(
+
+            # 1. Generujemy tymczasowy URL z OpenAI
+            temp_image_url = self.openai_service.generate_image(
                 prompt=prompt,
                 size="1024x1024",
                 quality="standard",
                 model="dall-e-3"
             )
-            
-            # Update the recipe with the image URL if you have an image_url field
-            # If you don't have this field, you'll need to add it to your Recipe model
-            # recipe.image_url = image_url
-            # recipe.save()
-            
-            logger.info(f"Image generated successfully for recipe '{recipe.title}': {image_url}")
-            return image_url
-            
+
+            # 2. Pobieramy fizyczny plik z OpenAI zanim link wygaśnie
+            logger.info(f"Downloading image from OpenAI: {temp_image_url}")
+            response = requests.get(temp_image_url)
+
+            if response.status_code == 200:
+                # 3. Tworzymy unikalną nazwę pliku
+                file_ext = "png"  # DALL-E zwraca PNG
+                filename = f"recipes/{recipe.id}_{uuid.uuid4().hex[:8]}.{file_ext}"
+
+                # 4. Zapisujemy plik w MEDIA_ROOT
+                saved_path = default_storage.save(filename, ContentFile(response.content))
+
+                # 5. Tworzymy trwały, lokalny URL
+                # Zakładamy, że WordPress widzi Django pod localhost:8000
+                local_url = f"http://localhost:8000{settings.MEDIA_URL}{saved_path}"
+
+                logger.info(f"Image saved locally at: {saved_path}")
+                logger.info(f"Permanent local URL: {local_url}")
+
+                return local_url
+            else:
+                logger.error(f"Failed to download image from OpenAI. Status: {response.status_code}")
+                return "https://placeholder.com/food-placeholder-image"
+
         except Exception as e:
-            logger.error(f"Error generating image for recipe: {e}")
-            # Return a placeholder or default image URL in case of error
-            return "https://placeholder.com/food-placeholder-image" 
+            logger.error(f"Error generating image for recipe: {e}", exc_info=True)
+            return "https://placeholder.com/food-placeholder-image"

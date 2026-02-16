@@ -33,27 +33,37 @@ add_action( 'fr_fetch_recipes_event', 'fr_fetch_and_create_recipes' );
 function fr_fetch_and_create_recipes() {
     $results = array('created' => 0, 'updated' => 0, 'errors' => 0);
 
+    error_log('[FR] === STARTING RECIPE FETCH PROCESS ===');
+
     // Endpoint API
-    // Upewnij się, że adres jest poprawny dla Twojej konfiguracji (localhost lub nazwa serwisu docker)
     $api_url = 'http://localhost:8000/api/recipes/';
+
+    error_log('[FR] Fetching from: ' . $api_url);
 
     $response = wp_remote_get($api_url, array('timeout' => 30, 'sslverify' => false));
 
     if (is_wp_error($response)) {
-        error_log('Fetch Recipes ERROR: ' . $response->get_error_message());
+        error_log('[FR] Fetch Recipes ERROR: ' . $response->get_error_message());
         return false;
     }
 
     $recipes = json_decode(wp_remote_retrieve_body($response), true);
 
     if (empty($recipes) || !is_array($recipes)) {
-        error_log('Fetch Recipes ERROR: Invalid JSON response.');
+        error_log('[FR] Fetch Recipes ERROR: Invalid JSON response or empty array.');
         return false;
     }
 
+    error_log('[FR] Successfully parsed JSON. Found ' . count($recipes) . ' recipes.');
+
     foreach ($recipes as $recipe) {
         $recipe_id = isset($recipe['id']) ? $recipe['id'] : null;
-        if (!$recipe_id) continue;
+        if (!$recipe_id) {
+            error_log('[FR] Skipping recipe without ID.');
+            continue;
+        }
+
+        error_log("[FR] Processing API Recipe ID: {$recipe_id}, Title: " . (isset($recipe['title']) ? $recipe['title'] : 'Unknown'));
 
         $existing_posts = new WP_Query(array(
             'post_type'  => 'recipe',
@@ -66,7 +76,7 @@ function fr_fetch_and_create_recipes() {
         $delicious_meta = fr_map_recipe_to_delicious_meta($recipe);
         $post_title = isset($recipe['title']) ? $recipe['title'] : 'Untitled Recipe';
 
-        // Wypełnianie treści posta (dla SEO i wyglądu)
+        // Wypełnianie treści posta
         $post_content = isset($recipe['description']) ? $recipe['description'] : '';
         if (empty($post_content)) {
             $post_content = 'Przepis wygenerowany automatycznie.';
@@ -85,10 +95,13 @@ function fr_fetch_and_create_recipes() {
         if ($existing_posts->have_posts()) {
             // UPDATE
             $post_id = $existing_posts->posts[0];
+            error_log("[FR] Found existing Post ID: {$post_id}. Checking timestamps...");
+
             $last_updated = get_post_meta($post_id, 'fr_recipe_updated_at', true);
             $recipe_updated = isset($recipe['updated_at']) ? $recipe['updated_at'] : '';
 
             if (empty($last_updated) || empty($recipe_updated) || $recipe_updated > $last_updated) {
+                error_log("[FR] Updating Post ID: {$post_id}");
                 $post_data['ID'] = $post_id;
                 wp_update_post($post_data, true);
 
@@ -96,27 +109,42 @@ function fr_fetch_and_create_recipes() {
 
                 // Obsługa obrazka
                 if (isset($recipe['image_url']) && !empty($recipe['image_url'])) {
+                    error_log("[FR] Image URL found for update: " . $recipe['image_url']);
                     fr_set_featured_image($post_id, $recipe['image_url']);
+                } else {
+                    error_log("[FR] No image_url provided for API Recipe ID: {$recipe_id}");
                 }
 
                 $results['updated']++;
+            } else {
+                error_log("[FR] Recipe ID {$recipe_id} is up to date.");
             }
         } else {
             // INSERT
+            error_log("[FR] Creating NEW post for API Recipe ID: {$recipe_id}");
             $post_id = wp_insert_post($post_data, true);
+
             if (!is_wp_error($post_id)) {
+                error_log("[FR] New post created successfully. WP Post ID: {$post_id}");
                 fr_update_recipe_meta($post_id, $delicious_meta, $recipe_id, isset($recipe['updated_at']) ? $recipe['updated_at'] : '');
 
                 // Obsługa obrazka
                 if (isset($recipe['image_url']) && !empty($recipe['image_url'])) {
+                    error_log("[FR] Image URL found for new post: " . $recipe['image_url']);
                     fr_set_featured_image($post_id, $recipe['image_url']);
+                } else {
+                    error_log("[FR] No image_url provided for new post API Recipe ID: {$recipe_id}");
                 }
 
                 $results['created']++;
+            } else {
+                error_log("[FR] Error creating post: " . $post_id->get_error_message());
+                $results['errors']++;
             }
         }
     }
     update_option('fr_last_fetch_time', time());
+    error_log("[FR] === PROCESS COMPLETE. Created: {$results['created']}, Updated: {$results['updated']}, Errors: {$results['errors']} ===");
     return $results;
 }
 
@@ -124,15 +152,20 @@ function fr_fetch_and_create_recipes() {
  * Funkcja aktualizująca metadane (POPRAWIONA o brakujące flagi graficzne)
  */
 function fr_update_recipe_meta($post_id, $delicious_meta, $api_id, $api_updated_at) {
+    error_log("[FR] Updating META for Post ID: {$post_id}");
+
     // 1. Główne dane przepisu
     update_post_meta($post_id, 'delicious_recipes_metadata', $delicious_meta);
 
-    // 2. Pola pomocnicze i flagi widoczności (KLUCZOWE POPRAWKI)
+    // 2. Pola pomocnicze i flagi widoczności
     update_post_meta($post_id, '_dr_difficulty_level', 'beginner');
     update_post_meta($post_id, '_dr_best_season', 'summer');
 
     // !!! WAŻNE: To pole aktywuje wyświetlanie karty przepisu (grafiki) na stronie !!!
-    update_post_meta($post_id, '_drwidgetsblocks_active', 'yes');
+    $widget_active = update_post_meta($post_id, '_drwidgetsblocks_active', 'yes');
+    if ($widget_active) {
+        error_log("[FR] Set _drwidgetsblocks_active to 'yes' for Post ID: {$post_id}");
+    }
 
     // 3. Generowanie prostej listy składników (wymagane przez wtyczkę)
     $simple_ingredients = array();
@@ -149,6 +182,7 @@ function fr_update_recipe_meta($post_id, $delicious_meta, $api_id, $api_updated_
         }
     }
 
+    error_log("[FR] Ingredients count for Post ID {$post_id}: {$ing_count}");
     update_post_meta($post_id, '_dr_ingredient_count', $ing_count);
     update_post_meta($post_id, '_dr_recipe_ingredients', $simple_ingredients);
 
@@ -231,25 +265,73 @@ function fr_map_recipe_to_delicious_meta($recipe) {
     ];
 }
 
+
 /**
  * Featured Image - Funkcja pobierająca i ustawiająca obrazek
  */
 function fr_set_featured_image($post_id, $image_url) {
-    if (has_post_thumbnail($post_id)) return true; // Już ma obrazek
+    if (has_post_thumbnail($post_id)) {
+        error_log("[FR] Post ID {$post_id} already has a featured image. Skipping.");
+        return true;
+    }
+
+    $clean_url = trim($image_url);
+    $clean_url = esc_url_raw($clean_url);
+
+    error_log("[FR] Attempting to set Featured Image for Post ID {$post_id}. URL: {$clean_url}");
+
+    if (empty($clean_url) || !filter_var($clean_url, FILTER_VALIDATE_URL)) {
+        error_log("[FR] Invalid URL format for image: {$clean_url}");
+        return false;
+    }
 
     require_once(ABSPATH . 'wp-admin/includes/media.php');
     require_once(ABSPATH . 'wp-admin/includes/file.php');
     require_once(ABSPATH . 'wp-admin/includes/image.php');
 
-    // Pobranie pliku do temp
-    $tmp = download_url($image_url);
-    if (is_wp_error($tmp)) {
-        error_log('Error downloading image: ' . $tmp->get_error_message());
+    // Używamy wp_remote_get(), które nie blokuje portu 8000 ani localhosta
+    $response = wp_remote_get($clean_url, array(
+        'timeout'   => 30,
+        'sslverify' => false
+    ));
+
+    if (is_wp_error($response)) {
+        error_log('[FR] Error downloading image (wp_remote_get): ' . $response->get_error_message());
         return false;
     }
 
+    $response_code = wp_remote_retrieve_response_code($response);
+    if ($response_code !== 200) {
+        error_log("[FR] Failed to download image. HTTP Status: {$response_code}");
+        return false;
+    }
+
+    $image_data = wp_remote_retrieve_body($response);
+    if (empty($image_data)) {
+        error_log('[FR] Downloaded image body is empty.');
+        return false;
+    }
+
+    // Wyciągamy oryginalną nazwę pliku
+    $filename = basename(parse_url($clean_url, PHP_URL_PATH));
+    if (empty($filename)) {
+        $filename = 'recipe_image_' . $post_id . '.png';
+    }
+
+    // Tworzymy plik tymczasowy w WordPress
+    $tmp = wp_tempnam($filename);
+    if (!$tmp) {
+        error_log('[FR] Could not create temp file for image.');
+        return false;
+    }
+
+    // Zapisujemy pobrane dane obrazka do pliku tymczasowego
+    file_put_contents($tmp, $image_data);
+
+    error_log("[FR] Image manually downloaded and saved to temp: {$tmp}");
+
     $file_array = array(
-        'name' => basename($image_url),
+        'name'     => $filename,
         'tmp_name' => $tmp
     );
 
@@ -258,9 +340,11 @@ function fr_set_featured_image($post_id, $image_url) {
 
     if (is_wp_error($attachment_id)) {
         @unlink($tmp);
-        error_log('Error saving image: ' . $attachment_id->get_error_message());
+        error_log('[FR] Error saving image/sideloading: ' . $attachment_id->get_error_message());
         return false;
     }
+
+    error_log("[FR] Created Attachment ID: {$attachment_id}. Setting as featured image...");
 
     // Ustawienie jako Featured Image
     set_post_thumbnail($post_id, $attachment_id);
