@@ -67,6 +67,7 @@ function fr_fetch_and_create_recipes() {
 
         $existing_posts = new WP_Query(array(
             'post_type'  => 'recipe',
+            'post_status' => array('publish', 'draft', 'pending', 'private'),
             'meta_key'   => 'fr_recipe_id',
             'meta_value' => $recipe_id,
             'fields'     => 'ids'
