@@ -77,3 +77,5 @@ db.sqlite3
 
 # Static files
 staticfiles/
+
+analyze_what_to_update.md
