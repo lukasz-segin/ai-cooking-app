@@ -54,9 +54,11 @@ class RecipeGeneratorService:
             # Step 3: Create a system prompt and user prompt
             logger.info(f"Step 3: Creating system and user prompts")
             # system_prompt = self._create_system_prompt(recipes_context)
-            system_prompt = self._create_system_prompt_v2(recipes_context)
+            # system_prompt = self._create_system_prompt_v2(recipes_context)
+            system_prompt = self._create_system_prompt_v3(recipes_context)
             # user_prompt = self._create_user_prompt(query)
-            user_prompt = self._create_user_prompt_v2(query)
+            # user_prompt = self._create_user_prompt_v2(query)
+            user_prompt = self._create_user_prompt_v3(query)
             logger.debug(f"System prompt length: {len(system_prompt)} characters")
             logger.debug(f"User prompt: {user_prompt}")
             
@@ -220,6 +222,54 @@ Bądź precyzyjny i upewnij się, że przepis jest praktyczny i może być łatw
         """
         logger.debug(f"System prompt V2 created with length {len(prompt)} characters")
         return prompt
+
+    def _create_system_prompt_v3(self, recipes_context: str) -> str:
+        """Create a system prompt with instructions and recipe examples (version 2)."""
+        prompt = f"""
+        Jesteś profesjonalnym szefem kuchni, który precyzyjnie generuje przepisy na podstawie przekazanych danych.  
+
+        **Ważne zasady generowania przepisu (OBOWIĄZKOWE):**  
+        1. Przepis MUSI być utworzony TYLKO na podstawie dostarczonych przykładów przepisów.  
+        2. NIE MOŻESZ dodawać ŻADNYCH nowych składników, których NIE MA w przykładach.  
+        3. NIE MOŻESZ używać technik ani kroków przygotowania, których NIE MA w przykładach.  
+        4. NIE WOLNO dodawać własnych informacji, porad, ani wariacji składników poza dostarczonym kontekstem.  
+        3. Całość przepisów MUSI być w języku polskim.  
+        4. Każda sekcja przepisu musi ściśle bazować na podanych przykładach i musi być realistyczna oraz wykonalna.  
+        5. Jeśli w przykładach nie ma dokładnych informacji o kaloriach lub wartościach odżywczych, nie wymyślaj tych danych - podaj orientacyjne wartości tylko jeśli są dostępne w przykładach.
+        6. NIE WOLNO CI szacować wartości odżywczych. Jeśli brakuje tych informacji w przykładach, wpisz: "Brak danych".
+        7. Informacje o wartościach odżywczych (kalorie, białko, węglowodany, tłuszcze) MUSZĄ pochodzić WYŁĄCZNIE z dostarczonych przykładów. Jeśli dane te nie występują w przykładach, wpisz „Brak danych” zamiast podawać jakiekolwiek wartości szacunkowe.
+
+
+        **Dostarczone przepisy (Użyj TYLKO poniższych informacji):**  
+        {recipes_context}
+
+        **WYMAGANA struktura odpowiedzi (format JSON):**  
+        ```json
+        {{
+        "title": "Tytuł przepisu",
+        "description": "Krótki opis przepisu",
+        "ingredients": [
+            "składnik 1 - ilość",
+            "składnik 2 - ilość"
+        ],
+        "instructions": [
+            "Krok 1 instrukcji",
+            "Krok 2 instrukcji"
+        ],
+        "nutritional_info": {{
+            "calories": liczba kalorii,
+            "protein": "ilość białka",
+            "carbs": "ilość węglowodanów",
+            "fat": "ilość tłuszczów"
+        }},
+        "prep_time_minutes": liczba,
+        "cook_time_minutes": liczba
+        }}
+        ```
+        Nie wolno ci użyć niczego, czego nie znajdziesz w podanych przykładach.
+        """
+        logger.debug(f"System prompt V2 created with length {len(prompt)} characters")
+        return prompt
     
     def _create_user_prompt(self, query: str) -> str:
         """Create a user prompt based on the query."""
@@ -233,6 +283,19 @@ Upewnij się, że przepis jest praktyczny i bazuje tylko na informacjach z przyk
         return prompt
     
     def _create_user_prompt_v2(self, query: str) -> str:
+        prompt = f"""Na podstawie podanych przykładów przepisów utwórz nowy, kompletny przepis na "{query}".
+
+        Ważne zasady:
+        - NIE dodawaj żadnych składników ani metod przygotowania, które nie zostały wymienione w dostarczonych przykładach.
+        - Bazuj WYŁĄCZNIE na istniejących składnikach, proporcjach oraz sposobach przygotowania widocznych w podanych przykładach.
+        - Całość odpowiedzi MUSI być w języku polskim i w formacie JSON, zgodnym z podanym wcześniej wzorem.
+        - Twój przepis MUSI być realistyczny i praktyczny oraz ściśle opierać się na podanych przykładach.
+
+        Odpowiedź zwróć WYŁĄCZNIE w podanym formacie JSON. Nie dodawaj komentarzy ani dodatkowych informacji.
+        """
+        return prompt
+
+    def _create_user_prompt_v3(self, query: str) -> str:
         prompt = f"""Na podstawie podanych przykładów przepisów utwórz nowy, kompletny przepis na "{query}".
 
         Ważne zasady:
