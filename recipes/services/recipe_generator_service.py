@@ -224,30 +224,34 @@ Bądź precyzyjny i upewnij się, że przepis jest praktyczny i może być łatw
         return prompt
 
     def _create_system_prompt_v3(self, recipes_context: str) -> str:
-        """Create a system prompt with instructions and recipe examples (version 2)."""
+        """Create a system prompt with instructions and recipe examples (version 3)."""
         prompt = f"""
         Jesteś profesjonalnym szefem kuchni, który precyzyjnie generuje przepisy na podstawie przekazanych danych.  
-
-        **Ważne zasady generowania przepisu (OBOWIĄZKOWE):**  
+    
+        **Ważne zasady generowania przepisu (OBOWIĄZKOWE):** 
         1. Przepis MUSI być utworzony TYLKO na podstawie dostarczonych przykładów przepisów.  
         2. NIE MOŻESZ dodawać ŻADNYCH nowych składników, których NIE MA w przykładach.  
         3. NIE MOŻESZ używać technik ani kroków przygotowania, których NIE MA w przykładach.  
         4. NIE WOLNO dodawać własnych informacji, porad, ani wariacji składników poza dostarczonym kontekstem.  
-        3. Całość przepisów MUSI być w języku polskim.  
-        4. Każda sekcja przepisu musi ściśle bazować na podanych przykładach i musi być realistyczna oraz wykonalna.  
-        5. Jeśli w przykładach nie ma dokładnych informacji o kaloriach lub wartościach odżywczych, nie wymyślaj tych danych - podaj orientacyjne wartości tylko jeśli są dostępne w przykładach.
-        6. NIE WOLNO CI szacować wartości odżywczych. Jeśli brakuje tych informacji w przykładach, wpisz: "Brak danych".
-        7. Informacje o wartościach odżywczych (kalorie, białko, węglowodany, tłuszcze) MUSZĄ pochodzić WYŁĄCZNIE z dostarczonych przykładów. Jeśli dane te nie występują w przykładach, wpisz „Brak danych” zamiast podawać jakiekolwiek wartości szacunkowe.
-
-
-        **Dostarczone przepisy (Użyj TYLKO poniższych informacji):**  
+        5. Całość przepisów MUSI być w języku polskim.  
+        6. Każda sekcja przepisu musi ściśle bazować na podanych przykładach i musi być realistyczna oraz wykonalna.  
+        7. Jeśli w przykładach nie ma dokładnych informacji o kaloriach lub wartościach odżywczych, nie wymyślaj tych danych - podaj orientacyjne wartości tylko jeśli są dostępne w przykładach.
+        8. NIE WOLNO CI szacować wartości odżywczych. Jeśli brakuje tych informacji w przykładach, wpisz: "Brak danych".
+        9. Informacje o wartościach odżywczych (kalorie, białko, węglowodany, tłuszcze) MUSZĄ pochodzić WYŁĄCZNIE z dostarczonych przykładów. Jeśli dane te nie występują w przykładach, wpisz „Brak danych” zamiast podawać jakiekolwiek wartości szacunkowe.
+        10. Wygeneruj angażujący wpis na bloga w formacie HTML (używaj znaczników takich jak <h3>, <p>, <strong>), który wprowadzi w klimat dania, wyjaśni dlaczego warto je przygotować i udzieli cennych porad.
+        11. Oceń i dobierz do przepisu poziom trudności oraz optymalny sezon (porę roku).
+    
+        **Dostarczone przepisy (Użyj TYLKO poniższych informacji):**
         {recipes_context}
-
-        **WYMAGANA struktura odpowiedzi (format JSON):**  
+    
+        **WYMAGANA struktura odpowiedzi (format JSON):** 
         ```json
         {{
         "title": "Tytuł przepisu",
-        "description": "Krótki opis przepisu",
+        "description": "Krótki, jednozdaniowy opis przepisu (zajawka)",
+        "blog_content": "Rozbudowany artykuł blogowy wprowadzający do przepisu sformatowany w HTML",
+        "difficulty": "beginner, intermediate lub advanced",
+        "season": "spring, summer, autumn, winter lub all_year",
         "ingredients": [
             "składnik 1 - ilość",
             "składnik 2 - ilość"
@@ -268,7 +272,7 @@ Bądź precyzyjny i upewnij się, że przepis jest praktyczny i może być łatw
         ```
         Nie wolno ci użyć niczego, czego nie znajdziesz w podanych przykładach.
         """
-        logger.debug(f"System prompt V2 created with length {len(prompt)} characters")
+        logger.debug(f"System prompt V3 created with length {len(prompt)} characters")
         return prompt
     
     def _create_user_prompt(self, query: str) -> str:
@@ -301,6 +305,7 @@ Upewnij się, że przepis jest praktyczny i bazuje tylko na informacjach z przyk
         Ważne zasady:
         - NIE dodawaj żadnych składników ani metod przygotowania, które nie zostały wymienione w dostarczonych przykładach.
         - Bazuj WYŁĄCZNIE na istniejących składnikach, proporcjach oraz sposobach przygotowania widocznych w podanych przykładach.
+        - Zadbaj o bogaty wstęp (storytelling) w formie artykułu blogowego z użyciem HTML oraz trafnie dobierz poziom trudności i sezon.
         - Całość odpowiedzi MUSI być w języku polskim i w formacie JSON, zgodnym z podanym wcześniej wzorem.
         - Twój przepis MUSI być realistyczny i praktyczny oraz ściśle opierać się na podanych przykładach.
 
