@@ -77,12 +77,14 @@ function fr_fetch_and_create_recipes() {
         $delicious_meta = fr_map_recipe_to_delicious_meta($recipe);
         $post_title = isset($recipe['title']) ? $recipe['title'] : 'Untitled Recipe';
 
-        // Wypełnianie treści posta
-        $post_content = isset($recipe['description']) ? $recipe['description'] : '';
-        if (empty($post_content)) {
-            $post_content = 'Przepis wygenerowany automatycznie.';
+        // Wypełnianie treści posta (Priorytet dla blog_content z HTML)
+        if (!empty($recipe['blog_content'])) {
+            $post_content = $recipe['blog_content'];
+        } else {
+            // Fallback dla starszych przepisów bez blog_content
+            $post_content = isset($recipe['description']) ? $recipe['description'] : 'Przepis wygenerowany automatycznie.';
+            $post_content = '<p>' . nl2br($post_content) . '</p>';
         }
-        $post_content = '<p>' . nl2br($post_content) . '</p>';
 
         $post_data = array(
             'post_title'   => wp_strip_all_tags($post_title),
@@ -159,8 +161,11 @@ function fr_update_recipe_meta($post_id, $delicious_meta, $api_id, $api_updated_
     update_post_meta($post_id, 'delicious_recipes_metadata', $delicious_meta);
 
     // 2. Pola pomocnicze i flagi widoczności
-    update_post_meta($post_id, '_dr_difficulty_level', 'beginner');
-    update_post_meta($post_id, '_dr_best_season', 'summer');
+    $difficulty = isset($delicious_meta['difficultyLevel']) ? $delicious_meta['difficultyLevel'] : 'beginner';
+    $season = isset($delicious_meta['bestSeason']) ? $delicious_meta['bestSeason'] : 'summer';
+
+    update_post_meta($post_id, '_dr_difficulty_level', $difficulty);
+    update_post_meta($post_id, '_dr_best_season', $season);
 
     // !!! WAŻNE: To pole aktywuje wyświetlanie karty przepisu (grafiki) na stronie !!!
     $widget_active = update_post_meta($post_id, '_drwidgetsblocks_active', 'yes');
@@ -234,11 +239,34 @@ function fr_map_recipe_to_delicious_meta($recipe) {
     if (preg_match('/Prep Time:\s*(\d+)/', $raw_instructions, $m)) $prep_time = $m[1];
     if (preg_match('/Cook Time:\s*(\d+)/', $raw_instructions, $m)) $cook_time = $m[1];
 
+    // 1. Pobranie surowych danych z API
+    $raw_difficulty = !empty($recipe['difficulty']) ? strtolower(trim($recipe['difficulty'])) : 'beginner';
+    $raw_season = !empty($recipe['season']) ? strtolower(trim($recipe['season'])) : 'all_year';
+
+    // 2. Słowniki tłumaczeń na język polski
+    $difficulty_translations = [
+        'beginner'     => 'Łatwy',
+        'intermediate' => 'Średni',
+        'advanced'     => 'Trudny'
+    ];
+
+    $season_translations = [
+        'spring'   => 'Wiosna',
+        'summer'   => 'Lato',
+        'autumn'   => 'Jesień',
+        'winter'   => 'Zima',
+        'all_year' => 'Cały rok'
+    ];
+
+    // 3. Mapowanie na polskie nazwy (jeśli API zwróci coś dziwnego, użyjemy domyślnych)
+    $difficulty = isset($difficulty_translations[$raw_difficulty]) ? $difficulty_translations[$raw_difficulty] : 'Łatwy';
+    $season = isset($season_translations[$raw_season]) ? $season_translations[$raw_season] : 'Cały rok';
+
     return [
         'recipeSubtitle'    => '',
         'recipeDescription' => isset($recipe['description']) ? $recipe['description'] : '',
         'recipeKeywords'    => '',
-        'difficultyLevel'   => 'beginner',
+        'difficultyLevel'   => $difficulty,
         'prepTime'          => $prep_time,
         'prepTimeUnit'      => 'min',
         'cookTime'          => $cook_time,
@@ -247,7 +275,7 @@ function fr_map_recipe_to_delicious_meta($recipe) {
         'restTimeUnit'      => 'min',
         'totalDuration'     => (int)$prep_time + (int)$cook_time,
         'totalDurationUnit' => 'min',
-        'bestSeason'        => 'summer',
+        'bestSeason'        => $season,
         'recipeCalories'    => '',
         'noOfServings'      => '4',
         'ingredientTitle'   => 'Składniki',
