@@ -350,6 +350,9 @@ Upewnij się, że przepis jest praktyczny i bazuje tylko na informacjach z przyk
                 new_recipe = Recipe.objects.create(
                     title=recipe_data.get("title", title),
                     description=recipe_data.get("description", ""),
+                    blog_content=recipe_data.get("blog_content", ""),
+                    difficulty=recipe_data.get("difficulty", "beginner"),
+                    season=recipe_data.get("season", "all_year"),
                     instructions=instructions_text
                 )
                 logger.info(f"Recipe created in database with ID: {new_recipe.id}")
