@@ -239,6 +239,17 @@ function fr_map_recipe_to_delicious_meta($recipe) {
     if (preg_match('/Prep Time:\s*(\d+)/', $raw_instructions, $m)) $prep_time = $m[1];
     if (preg_match('/Cook Time:\s*(\d+)/', $raw_instructions, $m)) $cook_time = $m[1];
 
+    // Wyciąganie Kalorii z surowych instrukcji
+    $calories = '';
+    if (preg_match('/Calories:\s*([^\n]+)/', $raw_instructions, $m)) {
+        if (trim($m[1]) !== 'Brak danych') {
+            $calories = trim($m[1]) . ' kcal';
+        }
+    }
+
+    // Wyciąganie słów kluczowych (jeśli LLM je zwrócił w description lub instrukcjach)
+    $keywords = !empty($recipe['keywords']) ? $recipe['keywords'] : 'domowe, obiad';
+
     // 1. Pobranie surowych danych z API
     $raw_difficulty = !empty($recipe['difficulty']) ? strtolower(trim($recipe['difficulty'])) : 'beginner';
     $raw_season = !empty($recipe['season']) ? strtolower(trim($recipe['season'])) : 'all_year';
@@ -265,7 +276,7 @@ function fr_map_recipe_to_delicious_meta($recipe) {
     return [
         'recipeSubtitle'    => '',
         'recipeDescription' => isset($recipe['description']) ? $recipe['description'] : '',
-        'recipeKeywords'    => '',
+        'recipeKeywords'    => $keywords,
         'difficultyLevel'   => $difficulty,
         'prepTime'          => $prep_time,
         'prepTimeUnit'      => 'min',
@@ -276,7 +287,7 @@ function fr_map_recipe_to_delicious_meta($recipe) {
         'totalDuration'     => (int)$prep_time + (int)$cook_time,
         'totalDurationUnit' => 'min',
         'bestSeason'        => $season,
-        'recipeCalories'    => '',
+        'recipeCalories'    => $calories,
         'noOfServings'      => '4',
         'ingredientTitle'   => 'Składniki',
         'recipeIngredients' => [[
