@@ -106,6 +106,11 @@ class RecipeGeneratorService:
                     "id": new_recipe.id,
                     "title": new_recipe.title,
                     "description": new_recipe.description,
+                    "blog_content": new_recipe.blog_content,
+                    "difficulty": new_recipe.difficulty,
+                    "season": new_recipe.season,
+                    "keywords": new_recipe.keywords,
+                    "ingredients": new_recipe.ingredients,
                     "instructions": new_recipe.instructions,
                     "image_url": image_url  # Add the image URL to the response
                 },
@@ -252,6 +257,7 @@ Bądź precyzyjny i upewnij się, że przepis jest praktyczny i może być łatw
         "blog_content": "Rozbudowany artykuł blogowy wprowadzający do przepisu sformatowany w HTML",
         "difficulty": "beginner, intermediate lub advanced",
         "season": "spring, summer, autumn, winter lub all_year",
+        "keywords": "3-5 słów kluczowych po polsku, oddzielonych przecinkami (np. domowe, wegańskie)",
         "ingredients": [
             "składnik 1 - ilość",
             "składnik 2 - ilość"
@@ -353,7 +359,9 @@ Upewnij się, że przepis jest praktyczny i bazuje tylko na informacjach z przyk
                     blog_content=recipe_data.get("blog_content", ""),
                     difficulty=recipe_data.get("difficulty", "beginner"),
                     season=recipe_data.get("season", "all_year"),
-                    instructions=instructions_text
+                    instructions=instructions_text,
+                    keywords=recipe_data.get("keywords", ""),
+                    ingredients=json.dumps(recipe_data.get("ingredients", []), ensure_ascii=False)
                 )
                 logger.info(f"Recipe created in database with ID: {new_recipe.id}")
                 

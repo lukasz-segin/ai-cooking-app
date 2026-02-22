@@ -9,6 +9,8 @@ class Recipe(models.Model):
     difficulty = models.CharField(max_length=50, blank=True, null=True)
     season = models.CharField(max_length=50, blank=True, null=True)
     image_url = models.URLField(max_length=1000, blank=True, null=True)
+    keywords = models.CharField(max_length=100, blank=True, null=True)
+    ingredients = models.CharField(max_length=1000, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
