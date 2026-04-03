@@ -2,10 +2,6 @@
 /**
  * Add admin menu for recipe fetching
  */
-// Add this at the top of fetch_recipes_admin.php
-add_action('admin_notices', function() {
-    echo '<div class="notice notice-success"><p>Fetch Recipes admin file loaded successfully!</p></div>';
-});
 
 function fr_add_admin_menu() {
     add_management_page(
