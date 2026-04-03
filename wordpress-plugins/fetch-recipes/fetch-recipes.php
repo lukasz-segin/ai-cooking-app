@@ -89,7 +89,7 @@ function fr_fetch_and_create_recipes() {
         $post_data = array(
             'post_title'   => wp_strip_all_tags($post_title),
             'post_content' => $post_content,
-            'post_status'  => 'draft',
+            'post_status'  => 'publish',
             'post_author'  => 1,
             'post_type'    => 'recipe',
             'post_date'    => current_time('mysql')
@@ -108,7 +108,8 @@ function fr_fetch_and_create_recipes() {
                 $post_data['ID'] = $post_id;
                 wp_update_post($post_data, true);
 
-                fr_update_recipe_meta($post_id, $delicious_meta, $recipe_id, $recipe_updated);
+                // fr_update_recipe_meta($post_id, $delicious_meta, $recipe_id, $recipe_updated);
+                fr_update_recipe_meta($post_id, $delicious_meta, $recipe);
 
                 // Obsługa obrazka
                 if (isset($recipe['image_url']) && !empty($recipe['image_url'])) {
@@ -129,7 +130,8 @@ function fr_fetch_and_create_recipes() {
 
             if (!is_wp_error($post_id)) {
                 error_log("[FR] New post created successfully. WP Post ID: {$post_id}");
-                fr_update_recipe_meta($post_id, $delicious_meta, $recipe_id, isset($recipe['updated_at']) ? $recipe['updated_at'] : '');
+                // fr_update_recipe_meta($post_id, $delicious_meta, $recipe_id, isset($recipe['updated_at']) ? $recipe['updated_at'] : '');
+                fr_update_recipe_meta($post_id, $delicious_meta, $recipe);
 
                 // Obsługa obrazka
                 if (isset($recipe['image_url']) && !empty($recipe['image_url'])) {
@@ -152,28 +154,27 @@ function fr_fetch_and_create_recipes() {
 }
 
 /**
- * Funkcja aktualizująca metadane (POPRAWIONA o brakujące flagi graficzne)
+ * Funkcja aktualizująca metadane i taksonomie przepisu
  */
-function fr_update_recipe_meta($post_id, $delicious_meta, $api_id, $api_updated_at) {
-    error_log("[FR] Updating META for Post ID: {$post_id}");
+function fr_update_recipe_meta($post_id, $delicious_meta, $recipe) {
+    error_log("[FR] Updating META and TAXONOMIES for Post ID: {$post_id}");
+
+    $api_id = isset($recipe['id']) ? $recipe['id'] : '';
+    $api_updated_at = isset($recipe['updated_at']) ? $recipe['updated_at'] : '';
 
     // 1. Główne dane przepisu
     update_post_meta($post_id, 'delicious_recipes_metadata', $delicious_meta);
 
     // 2. Pola pomocnicze i flagi widoczności
-    $difficulty = isset($delicious_meta['difficultyLevel']) ? $delicious_meta['difficultyLevel'] : 'beginner';
-    $season = isset($delicious_meta['bestSeason']) ? $delicious_meta['bestSeason'] : 'summer';
+    $difficulty = isset($delicious_meta['difficultyLevel']) ? $delicious_meta['difficultyLevel'] : 'Łatwy';
+    $season = isset($delicious_meta['bestSeason']) ? $delicious_meta['bestSeason'] : 'Cały rok';
 
     update_post_meta($post_id, '_dr_difficulty_level', $difficulty);
     update_post_meta($post_id, '_dr_best_season', $season);
 
-    // !!! WAŻNE: To pole aktywuje wyświetlanie karty przepisu (grafiki) na stronie !!!
     $widget_active = update_post_meta($post_id, '_drwidgetsblocks_active', 'yes');
-    if ($widget_active) {
-        error_log("[FR] Set _drwidgetsblocks_active to 'yes' for Post ID: {$post_id}");
-    }
 
-    // 3. Generowanie prostej listy składników (wymagane przez wtyczkę)
+    // 3. Generowanie prostej listy składników
     $simple_ingredients = array();
     $ing_count = 0;
 
@@ -188,16 +189,83 @@ function fr_update_recipe_meta($post_id, $delicious_meta, $api_id, $api_updated_
         }
     }
 
-    error_log("[FR] Ingredients count for Post ID {$post_id}: {$ing_count}");
     update_post_meta($post_id, '_dr_ingredient_count', $ing_count);
     update_post_meta($post_id, '_dr_recipe_ingredients', $simple_ingredients);
 
-    // 4. Synchronizacja
-    update_post_meta($post_id, 'fr_recipe_id', $api_id);
-    if (!empty($api_updated_at)) {
-        update_post_meta($post_id, 'fr_recipe_updated_at', $api_updated_at);
-    }
+    // 4. Synchronizacja API
+    if ($api_id) update_post_meta($post_id, 'fr_recipe_id', $api_id);
+    if ($api_updated_at) update_post_meta($post_id, 'fr_recipe_updated_at', $api_updated_at);
+
+    // 5. OBSŁUGA TAKSONOMII (Posiłki, Kuchnie, Metody, Klucze)
+    // Funkcja pomocnicza: dekoduje stringified JSON z Django na tablicę PHP
+    $parse_terms = function($data) {
+        if (empty($data)) return array();
+        if (is_array($data)) return $data;
+        $decoded = json_decode($data, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) return $decoded;
+        return array(trim((string)$data));
+    };
+
+    // Pobranie i sformatowanie danych z API
+    $courses = $parse_terms(isset($recipe['course']) ? $recipe['course'] : '');
+    $cuisines = $parse_terms(isset($recipe['cuisine']) ? $recipe['cuisine'] : '');
+    $cooking_methods = $parse_terms(isset($recipe['cooking_methods']) ? $recipe['cooking_methods'] : '');
+    $recipe_keys = $parse_terms(isset($recipe['recipe_keys']) ? $recipe['recipe_keys'] : '');
+
+    // Przypisanie ich do właściwych słowników WP Delicious
+    wp_set_object_terms($post_id, $courses, 'recipe-course', false);
+    wp_set_object_terms($post_id, $cuisines, 'recipe-cuisine', false);
+    wp_set_object_terms($post_id, $cooking_methods, 'recipe-cooking-method', false);
+    wp_set_object_terms($post_id, $recipe_keys, 'recipe-key', false);
 }
+
+// /**
+//  * Funkcja aktualizująca metadane (POPRAWIONA o brakujące flagi graficzne)
+//  */
+// function fr_update_recipe_meta($post_id, $delicious_meta, $api_id, $api_updated_at) {
+//     error_log("[FR] Updating META for Post ID: {$post_id}");
+
+//     // 1. Główne dane przepisu
+//     update_post_meta($post_id, 'delicious_recipes_metadata', $delicious_meta);
+
+//     // 2. Pola pomocnicze i flagi widoczności
+//     $difficulty = isset($delicious_meta['difficultyLevel']) ? $delicious_meta['difficultyLevel'] : 'beginner';
+//     $season = isset($delicious_meta['bestSeason']) ? $delicious_meta['bestSeason'] : 'summer';
+
+//     update_post_meta($post_id, '_dr_difficulty_level', $difficulty);
+//     update_post_meta($post_id, '_dr_best_season', $season);
+
+//     // !!! WAŻNE: To pole aktywuje wyświetlanie karty przepisu (grafiki) na stronie !!!
+//     $widget_active = update_post_meta($post_id, '_drwidgetsblocks_active', 'yes');
+//     if ($widget_active) {
+//         error_log("[FR] Set _drwidgetsblocks_active to 'yes' for Post ID: {$post_id}");
+//     }
+
+//     // 3. Generowanie prostej listy składników (wymagane przez wtyczkę)
+//     $simple_ingredients = array();
+//     $ing_count = 0;
+
+//     if (!empty($delicious_meta['recipeIngredients'][0]['ingredients'])) {
+//         $ingredients_raw = $delicious_meta['recipeIngredients'][0]['ingredients'];
+//         $ing_count = count($ingredients_raw);
+
+//         foreach ($ingredients_raw as $ing_item) {
+//             if (!empty($ing_item['ingredient'])) {
+//                 $simple_ingredients[] = $ing_item['ingredient'];
+//             }
+//         }
+//     }
+
+//     error_log("[FR] Ingredients count for Post ID {$post_id}: {$ing_count}");
+//     update_post_meta($post_id, '_dr_ingredient_count', $ing_count);
+//     update_post_meta($post_id, '_dr_recipe_ingredients', $simple_ingredients);
+
+//     // 4. Synchronizacja
+//     update_post_meta($post_id, 'fr_recipe_id', $api_id);
+//     if (!empty($api_updated_at)) {
+//         update_post_meta($post_id, 'fr_recipe_updated_at', $api_updated_at);
+//     }
+// }
 
 /**
  * Mapper Function: Converts Django API text to WP Delicious array structure
@@ -247,37 +315,19 @@ function fr_map_recipe_to_delicious_meta($recipe) {
         }
     }
 
-    // Wyciąganie słów kluczowych (jeśli LLM je zwrócił w description lub instrukcjach)
+    // Wyciąganie słów kluczowych
     $keywords = !empty($recipe['keywords']) ? $recipe['keywords'] : 'domowe, obiad';
 
-    // 1. Pobranie surowych danych z API
-    $raw_difficulty = !empty($recipe['difficulty']) ? strtolower(trim($recipe['difficulty'])) : 'beginner';
-    $raw_season = !empty($recipe['season']) ? strtolower(trim($recipe['season'])) : 'all_year';
-
-    // 2. Słowniki tłumaczeń na język polski
-    $difficulty_translations = [
-        'beginner'     => 'Łatwy',
-        'intermediate' => 'Średni',
-        'advanced'     => 'Trudny'
-    ];
-
-    $season_translations = [
-        'spring'   => 'Wiosna',
-        'summer'   => 'Lato',
-        'autumn'   => 'Jesień',
-        'winter'   => 'Zima',
-        'all_year' => 'Cały rok'
-    ];
-
-    // 3. Mapowanie na polskie nazwy (jeśli API zwróci coś dziwnego, użyjemy domyślnych)
-    $difficulty = isset($difficulty_translations[$raw_difficulty]) ? $difficulty_translations[$raw_difficulty] : 'Łatwy';
-    $season = isset($season_translations[$raw_season]) ? $season_translations[$raw_season] : 'Cały rok';
+    // 1. Pobranie danych bezpośrednio z API (LLM zwraca je teraz w języku polskim)
+    $difficulty = !empty($recipe['difficulty']) ? trim($recipe['difficulty']) : 'Łatwy';
+    $season = !empty($recipe['season']) ? trim($recipe['season']) : 'Cały rok';
+    $subtitle = !empty($recipe['subtitle']) ? trim($recipe['subtitle']) : '';
 
     return [
-        'recipeSubtitle'    => '',
+        'recipeSubtitle'    => $subtitle, // Zmapowany nowy podtytuł
         'recipeDescription' => isset($recipe['description']) ? $recipe['description'] : '',
         'recipeKeywords'    => $keywords,
-        'difficultyLevel'   => $difficulty,
+        'difficultyLevel'   => $difficulty, // Model LLM podaje "Średni", "Łatwy" itd.
         'prepTime'          => $prep_time,
         'prepTimeUnit'      => 'min',
         'cookTime'          => $cook_time,
@@ -286,7 +336,7 @@ function fr_map_recipe_to_delicious_meta($recipe) {
         'restTimeUnit'      => 'min',
         'totalDuration'     => (int)$prep_time + (int)$cook_time,
         'totalDurationUnit' => 'min',
-        'bestSeason'        => $season,
+        'bestSeason'        => $season, // Model LLM podaje "Cały rok", "Lato" itd.
         'recipeCalories'    => $calories,
         'noOfServings'      => '4',
         'ingredientTitle'   => 'Składniki',
@@ -303,6 +353,63 @@ function fr_map_recipe_to_delicious_meta($recipe) {
         'imageGalleryImages'=> [],
         'videoGalleryVids'  => []
     ];
+
+    // // Wyciąganie słów kluczowych (jeśli LLM je zwrócił w description lub instrukcjach)
+    // $keywords = !empty($recipe['keywords']) ? $recipe['keywords'] : 'domowe, obiad';
+
+    // // 1. Pobranie surowych danych z API
+    // $raw_difficulty = !empty($recipe['difficulty']) ? strtolower(trim($recipe['difficulty'])) : 'beginner';
+    // $raw_season = !empty($recipe['season']) ? strtolower(trim($recipe['season'])) : 'all_year';
+
+    // // 2. Słowniki tłumaczeń na język polski
+    // $difficulty_translations = [
+    //     'beginner'     => 'Łatwy',
+    //     'intermediate' => 'Średni',
+    //     'advanced'     => 'Trudny'
+    // ];
+
+    // $season_translations = [
+    //     'spring'   => 'Wiosna',
+    //     'summer'   => 'Lato',
+    //     'autumn'   => 'Jesień',
+    //     'winter'   => 'Zima',
+    //     'all_year' => 'Cały rok'
+    // ];
+
+    // // 3. Mapowanie na polskie nazwy (jeśli API zwróci coś dziwnego, użyjemy domyślnych)
+    // $difficulty = isset($difficulty_translations[$raw_difficulty]) ? $difficulty_translations[$raw_difficulty] : 'Łatwy';
+    // $season = isset($season_translations[$raw_season]) ? $season_translations[$raw_season] : 'Cały rok';
+
+    // return [
+    //     'recipeSubtitle'    => '',
+    //     'recipeDescription' => isset($recipe['description']) ? $recipe['description'] : '',
+    //     'recipeKeywords'    => $keywords,
+    //     'difficultyLevel'   => $difficulty,
+    //     'prepTime'          => $prep_time,
+    //     'prepTimeUnit'      => 'min',
+    //     'cookTime'          => $cook_time,
+    //     'cookTimeUnit'      => 'min',
+    //     'restTime'          => '0',
+    //     'restTimeUnit'      => 'min',
+    //     'totalDuration'     => (int)$prep_time + (int)$cook_time,
+    //     'totalDurationUnit' => 'min',
+    //     'bestSeason'        => $season,
+    //     'recipeCalories'    => $calories,
+    //     'noOfServings'      => '4',
+    //     'ingredientTitle'   => 'Składniki',
+    //     'recipeIngredients' => [[
+    //         'sectionTitle' => '',
+    //         'ingredients'  => $ingredients_list
+    //     ]],
+    //     'instructionsTitle' => 'Sposób przygotowania',
+    //     'recipeInstructions'=> [[
+    //         'sectionTitle' => '',
+    //         'instruction'  => $instructions_list
+    //     ]],
+    //     'recipeNotes'       => 'Wygenerowano automatycznie przez AI Cooking App.',
+    //     'imageGalleryImages'=> [],
+    //     'videoGalleryVids'  => []
+    // ];
 }
 
 
