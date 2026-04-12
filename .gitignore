@@ -80,3 +80,6 @@ staticfiles/
 
 analyze_what_to_update.md
 notatki.txt
+
+# Ukryte prompty
+recipes/services/prompts.py
