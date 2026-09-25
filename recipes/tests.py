@@ -114,6 +114,19 @@ class RecipeApiSecurityTests(APITestCase):
         generator_service.assert_not_called()
 
 
+class DemoSurfaceTests(APITestCase):
+    def test_landing_page_renders_forms(self):
+        response = self.client.get("/")
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'id="search-form"')
+        self.assertContains(response, 'id="generate-form"')
+
+    def test_schema_endpoint(self):
+        response = self.client.get("/api/schema/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("openapi", response.data)
+
+
 class RecipeImageFlagTests(APITestCase):
     @override_settings(RECIPE_IMAGE_GENERATION_ENABLED=False)
     @patch("recipes.services.recipe_generator_service.OpenAIService")

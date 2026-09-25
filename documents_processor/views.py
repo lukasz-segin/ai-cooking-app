@@ -13,6 +13,8 @@ from .services.google_drive_service import GoogleDriveService
 # Create your views here.
 
 class DocumentProcessorViewSet(viewsets.ModelViewSet):
+    """Every action requires a staff user. Anonymous calls are rejected."""
+
     queryset = StoredDocument.objects.all()
     serializer_class = StoredDocumentSerializer
     permission_classes = [IsAdminUser]

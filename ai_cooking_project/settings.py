@@ -118,6 +118,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     # Third-party apps
     "rest_framework",
+    "drf_spectacular",
     # Your apps
     "recipes",
     "documents_processor",
@@ -139,7 +140,7 @@ ROOT_URLCONF = "ai_cooking_project.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -324,6 +325,13 @@ REST_FRAMEWORK = {
     "DEFAULT_PARSER_CLASSES": [
         "rest_framework.parsers.JSONParser",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "AI Cooking API",
+    "DESCRIPTION": "Search recipes and generate a new one. Write and document-processing endpoints require a staff user.",
+    "VERSION": "1.0.0",
 }
 
 RECIPE_IMAGE_GENERATION_ENABLED = config.RECIPE_IMAGE_GENERATION_ENABLED

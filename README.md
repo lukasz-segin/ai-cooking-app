@@ -2,6 +2,20 @@
 
 **ai-cooking-app** is a Django REST Framework application designed to manage recipes with an AI-driven API. The project uses Python 3.12, Poetry for dependency management, and Docker for containerization, ensuring a robust, production-ready environment.
 
+## Live demo
+
+Public URL: _to be added after deploy._
+
+Screenshots:
+
+1. Landing page search
+2. Generated recipe
+3. Swagger UI at `/api/docs/`
+
+## Architecture
+
+A search request embeds the query with OpenAI, then ranks document chunks with pgvector cosine distance plus keyword search. Recipe generation retrieves similar chunks, asks gpt-4o for a new recipe, and calls DALL-E only when image generation is enabled.
+
 ## Overview
 
 - **API Endpoints:** Provides RESTful endpoints for listing and creating recipes.

@@ -1,5 +1,7 @@
 from django.conf import settings
 from django.core.cache import cache
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiExample, OpenApiParameter, extend_schema
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAdminUser
@@ -56,6 +58,20 @@ def _consume_generate_daily_allowance():
     return count <= cap
 
 
+@extend_schema(
+    parameters=[
+        OpenApiParameter(name="meal_name", required=True, type=str),
+        OpenApiParameter(name="limit", required=False, type=int),
+    ],
+    responses={200: OpenApiTypes.OBJECT},
+    examples=[
+        OpenApiExample(
+            "Search response",
+            value={"query": "zupa", "results_count": 0, "results": []},
+            response_only=True,
+        )
+    ],
+)
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def search_recipes(request):
@@ -113,6 +129,34 @@ def search_recipes(request):
 search_recipes.cls.throttle_scope = "search"
 
 
+@extend_schema(
+    request=OpenApiTypes.OBJECT,
+    responses={
+        200: OpenApiTypes.OBJECT,
+        429: OpenApiTypes.OBJECT,
+        503: OpenApiTypes.OBJECT,
+    },
+    examples=[
+        OpenApiExample(
+            "Generate request",
+            value={"query": "zupa pomidorowa", "num_examples": 3},
+            request_only=True,
+        ),
+        OpenApiExample(
+            "Generate response",
+            value={
+                "status": "success",
+                "recipe": {
+                    "id": 1,
+                    "title": "Zupa pomidorowa",
+                    "description": "Sample description",
+                    "image_url": "",
+                },
+            },
+            response_only=True,
+        ),
+    ],
+)
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def generate_recipe(request):
