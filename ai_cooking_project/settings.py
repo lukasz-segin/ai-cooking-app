@@ -12,7 +12,10 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
+import sys
+from urllib.parse import unquote, urlparse
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -23,11 +26,12 @@ class SettingsFromEnvironment(BaseSettings):
 
     LOG_LEVEL: str = "INFO"
 
-    POSTGRES_DB: str | None
-    POSTGRES_USER: str | None
-    POSTGRES_PASSWORD: str | None
-    POSTGRES_HOST: str | None
+    POSTGRES_DB: str | None = None
+    POSTGRES_USER: str | None = None
+    POSTGRES_PASSWORD: str | None = None
+    POSTGRES_HOST: str | None = None
     POSTGRES_PORT: int = 5432
+    DATABASE_URL: str = ""
 
     # CACHE_REDIS_DB: str | None = None
     # CACHE_REDIS_HOST: str | None = None
@@ -35,21 +39,42 @@ class SettingsFromEnvironment(BaseSettings):
     # CACHE_REDIS_PORT: int = 6379
     # CACHE_REDIS_PREFIX: str = "ai-cooking-app"
     # CACHE_REDIS_TIMEOUT: int = 60
-    
+
     STATICS_SRC: str | None = None
     ALLOWED_HOSTS: str = ""
+    CSRF_TRUSTED_ORIGINS: str = ""
 
-    SECRET_KEY: str = ""
+    SECRET_KEY: str
 
     OPENAI_API_KEY: str = ""
     GOOGLE_SERVICE_ACCOUNT_FILE: str = "service-account.json"
     DOCUMENTS_DIR: str = "documents"
 
+    NUM_PROXIES: int = 0
+    THROTTLE_ANON: str = "100/day"
+    THROTTLE_USER: str = "1000/day"
+    THROTTLE_SEARCH: str = "30/hour"
+    THROTTLE_GENERATE: str = "5/hour"
+    THROTTLE_GENERATE_DAILY_CAP: int = 50
+
+    RECIPE_IMAGE_GENERATION_ENABLED: bool = False
+    RECIPE_GENERATION_ENABLED: bool = True
+    RECIPE_QUERY_MAX_LENGTH: int = 200
+    RECIPE_RESULT_LIMIT_MAX: int = 10
+
+    @field_validator("SECRET_KEY")
+    @classmethod
+    def secret_key_must_come_from_environment(cls, value: str) -> str:
+        if not value.strip() or value.startswith("django-insecure-"):
+            raise ValueError(
+                "SECRET_KEY must be a non-empty value from the environment"
+            )
+        return value
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
-
-
+        extra = "ignore"
 
 
 config = SettingsFromEnvironment()
@@ -67,73 +92,99 @@ SECRET_KEY = config.SECRET_KEY
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config.DEBUG
 
-ALLOWED_HOSTS = config.ALLOWED_HOSTS.split(",")
+ALLOWED_HOSTS = [
+    host.strip() for host in config.ALLOWED_HOSTS.split(",") if host.strip()
+]
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip()
+    for origin in config.CSRF_TRUSTED_ORIGINS.split(",")
+    if origin.strip()
+]
+
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 
 # Application definition
 
 INSTALLED_APPS = [
     # Default Django apps...
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
     # Third-party apps
-    'rest_framework',
-
+    "rest_framework",
+    "drf_spectacular",
     # Your apps
-    'recipes',
-    'documents_processor',
+    "recipes",
+    "documents_processor",
 ]
 
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = 'ai_cooking_project.urls'
+ROOT_URLCONF = "ai_cooking_project.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'ai_cooking_project.wsgi.application'
+WSGI_APPLICATION = "ai_cooking_project.wsgi.application"
 
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config.POSTGRES_DB,
-        'USER': config.POSTGRES_USER,
-        'PASSWORD': config.POSTGRES_PASSWORD,
-        'HOST': config.POSTGRES_HOST,
-        'PORT': config.POSTGRES_PORT,
+def database_from_url(database_url):
+    parsed = urlparse(database_url)
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": parsed.path.lstrip("/"),
+        "USER": unquote(parsed.username or ""),
+        "PASSWORD": unquote(parsed.password or ""),
+        "HOST": parsed.hostname or "",
+        "PORT": parsed.port or 5432,
     }
-}
+
+
+if config.DATABASE_URL:
+    DATABASES = {"default": database_from_url(config.DATABASE_URL)}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": config.POSTGRES_DB,
+            "USER": config.POSTGRES_USER,
+            "PASSWORD": config.POSTGRES_PASSWORD,
+            "HOST": config.POSTGRES_HOST,
+            "PORT": config.POSTGRES_PORT,
+        }
+    }
 
 
 # Password validation
@@ -141,16 +192,16 @@ DATABASES = {
 
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
@@ -158,9 +209,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/5.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = "UTC"
 
 USE_I18N = True
 
@@ -170,43 +221,43 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Logging
 
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
         },
     },
-    'handlers': {
-        'console': {
-            'level': 'DEBUG',
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+    "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
         },
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': 'recipe_generator.log',
-            'formatter': 'verbose',
+        "file": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": "recipe_generator.log",
+            "formatter": "verbose",
         },
     },
-    'loggers': {
-        'recipes.services.recipe_generator_service': {
-            'handlers': ['console', 'file'],
-            'level': 'DEBUG',
-            'propagate': True,
+    "loggers": {
+        "recipes.services.recipe_generator_service": {
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": True,
         },
     },
 }
@@ -234,36 +285,76 @@ LOGGING = {
 #         },
 #     },
 # }
-# CACHES = {
-#     'default': {
-#         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-#         'LOCATION': 'unique-snowflake',
-#     }
-# }
+# Shared across gunicorn workers. Create the table once with:
+# python manage.py createcachetable
+# Tests use local memory so they do not need that table.
+if "test" in sys.argv:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "ai-cooking-test",
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+            "LOCATION": "django_cache",
+        }
+    }
 
 # Global Variables
 # DEFAULT_TIMEOUT = config.DEFAULT_TIMOUT
 # DEFAULT_CACHE_TIMEOUT = config.CACHE_REDIS_TIMEOUT
 # STATICS_SRC = config.STATICS_SRC
 
-DOCUMENTS_DIR = BASE_DIR / 'documents'
+DOCUMENTS_DIR = BASE_DIR / "documents"
 DOCUMENTS_DIR.mkdir(exist_ok=True)  # Create the directory if it doesn't exist
 
 # Google Drive API Settings
-GOOGLE_SERVICE_ACCOUNT_FILE = BASE_DIR / 'service-account.json'
+GOOGLE_SERVICE_ACCOUNT_FILE = BASE_DIR / "service-account.json"
 
 # OpenAI Settings
 OPENAI_API_KEY = config.OPENAI_API_KEY
 
 # REST Framework Settings
 REST_FRAMEWORK = {
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticatedOrReadOnly",
     ],
-    'DEFAULT_PARSER_CLASSES': [
-        'rest_framework.parsers.JSONParser',
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.BasicAuthentication",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": config.THROTTLE_ANON,
+        "user": config.THROTTLE_USER,
+        "search": config.THROTTLE_SEARCH,
+        "generate": config.THROTTLE_GENERATE,
+    },
+    "NUM_PROXIES": config.NUM_PROXIES,
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+SPECTACULAR_SETTINGS = {
+    "TITLE": "AI Cooking API",
+    "DESCRIPTION": "Search recipes and generate a new one. Write and document-processing endpoints require a staff user.",
+    "VERSION": "1.0.0",
+}
+
+RECIPE_IMAGE_GENERATION_ENABLED = config.RECIPE_IMAGE_GENERATION_ENABLED
+RECIPE_GENERATION_ENABLED = config.RECIPE_GENERATION_ENABLED
+RECIPE_QUERY_MAX_LENGTH = config.RECIPE_QUERY_MAX_LENGTH
+RECIPE_RESULT_LIMIT_MAX = config.RECIPE_RESULT_LIMIT_MAX
+THROTTLE_GENERATE_DAILY_CAP = config.THROTTLE_GENERATE_DAILY_CAP
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")

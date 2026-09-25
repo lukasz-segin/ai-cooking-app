@@ -28,8 +28,7 @@ db.sqlite3-journal
 media/
 staticfiles/
 
-# Poetry
-poetry.lock
+# Poetry lock is tracked so Docker and CI install the same versions.
 
 # Virtual Environment
 .env
@@ -60,6 +59,7 @@ Thumbs.db
 service-account.json
 documents/*
 !documents/.gitkeep
+private_data/
 
 # Local development
 __pycache__/
@@ -80,6 +80,3 @@ staticfiles/
 
 analyze_what_to_update.md
 notatki.txt
-
-# Ukryte prompty
-recipes/services/prompts.py

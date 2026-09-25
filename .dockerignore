@@ -1,0 +1,12 @@
+.git
+.venv
+venv
+.env
+private_data
+documents
+media
+staticfiles
+__pycache__
+*.pyc
+.idea
+.vscode

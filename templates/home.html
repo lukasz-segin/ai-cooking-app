@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Cooking</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; color: #1c1917; background: #faf7f2; }
+    main { max-width: 40rem; margin: 0 auto; padding: 1.5rem; }
+    h1 { font-size: 1.75rem; }
+    form { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 0.75rem 0 1rem; }
+    label { width: 100%; font-weight: 600; }
+    input { flex: 1 1 12rem; padding: 0.6rem; font: inherit; }
+    button { padding: 0.6rem 1rem; font: inherit; background: #9a3412; color: #fff; border: 0; }
+    a { color: #9a3412; }
+    .status { min-height: 1.5rem; }
+    article { background: #fff; border: 1px solid #e7e5e4; padding: 0.75rem 1rem; margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>AI Cooking</h1>
+    <p>A recipe demo built with Django, Django REST Framework, pgvector, and OpenAI. Search mixes semantic vectors with keyword ranking.</p>
+    <p>
+      <a href="https://github.com/lukasz-segin/ai-cooking-app">GitHub repository</a>
+      ·
+      <a href="/api/docs/">API docs</a>
+    </p>
+
+    <h2>Search recipes</h2>
+    <form id="search-form">
+      <label for="meal-name">Meal name</label>
+      <input id="meal-name" name="meal_name" type="search" required maxlength="200">
+      <button type="submit">Search</button>
+    </form>
+    <p id="search-status" class="status" role="status"></p>
+    <div id="search-results"></div>
+
+    <h2>Generate a recipe</h2>
+    <form id="generate-form">
+      <label for="recipe-query">What should the recipe be?</label>
+      <input id="recipe-query" name="query" type="text" required maxlength="200">
+      <button type="submit">Generate</button>
+    </form>
+    <p id="generate-status" class="status" role="status"></p>
+    <article id="generate-result" hidden></article>
+  </main>
+  <script>
+    const searchForm = document.getElementById("search-form");
+    const searchStatus = document.getElementById("search-status");
+    const searchResults = document.getElementById("search-results");
+    const generateForm = document.getElementById("generate-form");
+    const generateStatus = document.getElementById("generate-status");
+    const generateResult = document.getElementById("generate-result");
+
+    searchForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      searchStatus.textContent = "Searching…";
+      searchResults.replaceChildren();
+      const mealName = new FormData(searchForm).get("meal_name");
+      const response = await fetch("/api/recipes/search/?meal_name=" + encodeURIComponent(mealName));
+      const body = await response.json();
+      if (!response.ok) {
+        searchStatus.textContent = body.error || "Search failed.";
+        return;
+      }
+      searchStatus.textContent = body.results_count + " result(s).";
+      (body.results || []).forEach((item) => {
+        const card = document.createElement("article");
+        card.textContent = item.document_title || item.content || "Recipe";
+        searchResults.appendChild(card);
+      });
+    });
+
+    generateForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      generateResult.hidden = true;
+      generateStatus.textContent = "Generating a recipe. This can take a moment…";
+      const query = new FormData(generateForm).get("query");
+      const response = await fetch("/api/recipes/generate/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: query }),
+      });
+      const body = await response.json();
+      if (response.status === 429) {
+        generateStatus.textContent = "Rate limit reached. Please try again later.";
+        return;
+      }
+      if (!response.ok) {
+        generateStatus.textContent = body.error || "Could not generate a recipe.";
+        return;
+      }
+      const recipe = body.recipe || {};
+      generateStatus.textContent = "Recipe ready.";
+      generateResult.hidden = false;
+      generateResult.textContent = (recipe.title || "Recipe") + ". " + (recipe.description || "");
+    });
+  </script>
+</body>
+</html>

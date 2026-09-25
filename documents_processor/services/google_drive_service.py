@@ -14,7 +14,9 @@ logger = logging.getLogger(__name__)
 class GoogleDriveService:
     def __init__(self):
         self.credentials = self._get_credentials()
-        self.service = build('drive', 'v3', credentials=self.credentials)
+        self.service = None
+        if self.credentials is not None:
+            self.service = build("drive", "v3", credentials=self.credentials)
         
         self.mime_types = {
             'doc': 'application/msword',

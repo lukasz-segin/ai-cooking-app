@@ -1,0 +1,38 @@
+services:
+  - type: web
+    name: ai-cooking-app
+    runtime: docker
+    plan: free
+    branch: master
+    autoDeploy: false
+    healthCheckPath: /healthz
+    preDeployCommand: python manage.py migrate
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NUM_PROXIES
+        value: "1"
+      - key: THROTTLE_ANON
+        value: 100/day
+      - key: THROTTLE_USER
+        value: 1000/day
+      - key: THROTTLE_SEARCH
+        value: 30/hour
+      - key: THROTTLE_GENERATE
+        value: 5/hour
+      - key: THROTTLE_GENERATE_DAILY_CAP
+        value: "50"
+      - key: RECIPE_IMAGE_GENERATION_ENABLED
+        value: "false"
+      - key: RECIPE_GENERATION_ENABLED
+        value: "true"

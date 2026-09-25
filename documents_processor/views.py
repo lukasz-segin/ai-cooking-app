@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from .models import StoredDocument
 from .serializers import StoredDocumentSerializer
@@ -12,8 +13,11 @@ from .services.google_drive_service import GoogleDriveService
 # Create your views here.
 
 class DocumentProcessorViewSet(viewsets.ModelViewSet):
+    """Every action requires a staff user. Anonymous calls are rejected."""
+
     queryset = StoredDocument.objects.all()
     serializer_class = StoredDocumentSerializer
+    permission_classes = [IsAdminUser]
     
     @action(detail=False, methods=['post'])
     def process_document(self, request):
