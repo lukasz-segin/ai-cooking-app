@@ -29,13 +29,13 @@
 ```
 ai-cooking-app/
 ├── ai_cooking_project/      # Django project folder
-│   ├── __init__.py
+│   ├── init.py
 │   ├── asgi.py             # ASGI configuration
 │   ├── settings.py         # Project settings
 │   ├── urls.py             # Main URL configuration
 │   └── wsgi.py             # WSGI configuration
 ├── recipes/                 # App for managing recipes
-│   ├── __init__.py
+│   ├── init.py
 │   ├── apps.py             # App configuration
 │   ├── migrations/         # Database migrations
 │   │   └── 0001_initial.py
@@ -44,7 +44,7 @@ ai-cooking-app/
 │   ├── urls.py             # API endpoints
 │   └── views.py            # API views
 ├── documents_processor/     # App for processing documents
-│   ├── __init__.py
+│   ├── init.py
 │   ├── apps.py
 │   ├── migrations/
 │   ├── models.py           # Document models
@@ -120,14 +120,13 @@ The application includes a document processor that can:
    curl -X POST http://localhost:8000/api/documents/process_document/ \
       -H "Content-Type: application/json" \
       -d '{"file_name": "your-document.pdf", "use_google_drive": true}'
-   ```
 
    b) Process with Google Drive in batches (recommended for larger documents):
    ```bash
    # Process with Google Drive in batches
    curl -X POST http://localhost:8000/api/documents/process_with_google_drive_batched/ \
-        -H "Content-Type: application/json" \
-        -d '{"file_name": "your-document.pdf", "batch_size": 15}'
+      -H "Content-Type: application/json" \
+      -d '{"file_name": "your-document.pdf", "batch_size": 15}'
    ```
    
    Example response:
@@ -361,23 +360,48 @@ This admin interface provides a convenient way to:
 
 3. Navigate to "Stored documents" or "Document chunks" in the admin panel
 
-## Environment Variables
+## API access and cost limits
 
-For security reasons, the following environment variables should be set in production:
+Anonymous callers can list recipes and call search. Creating recipes, and every document write or processing action (`process_document`, `process_drive_document`, `process_with_google_drive_batched`), require a staff user (`IsAdminUser`).
+
+`POST /api/recipes/generate/` stays anonymous so a demo can try it. It is limited by the `generate` throttle (per IP) and by `THROTTLE_GENERATE_DAILY_CAP` (one shared counter for the whole app). Set `RECIPE_GENERATION_ENABLED=false` to turn the endpoint off (HTTP 503) without a deploy. DALL-E runs only when `RECIPE_IMAGE_GENERATION_ENABLED=true`; otherwise the recipe is returned with an empty `image_url`.
+
+Throttling uses Django's database cache (`django_cache`) so the limits are shared by every gunicorn worker. Create that table once:
 
 ```bash
-DJANGO_SECRET_KEY=your-secret-key-here
-DJANGO_DEBUG=False
-DJANGO_ALLOWED_HOSTS=your-domain.com,another-domain.com
+python manage.py createcachetable
+```
+
+Behind a reverse proxy set `NUM_PROXIES` (Render uses `1`) so the throttle key is the client IP from `X-Forwarded-For`.
+
+Before a public demo, set a monthly spending limit on the OpenAI key in the OpenAI dashboard, and use a separate API key that is only for this demo.
+
+## Environment Variables
+
+Names match `SettingsFromEnvironment` in `ai_cooking_project/settings.py`. `SECRET_KEY` is required and must not be empty or a `django-insecure-` value.
+
+```bash
+SECRET_KEY=your-secret-key-here
+DEBUG=False
+ALLOWED_HOSTS=your-domain.com
+CSRF_TRUSTED_ORIGINS=https://your-domain.com
 OPENAI_API_KEY=your-openai-api-key
 POSTGRES_DB=ai_cooking
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
+NUM_PROXIES=1
+THROTTLE_ANON=100/day
+THROTTLE_USER=1000/day
+THROTTLE_SEARCH=30/hour
+THROTTLE_GENERATE=5/hour
+THROTTLE_GENERATE_DAILY_CAP=50
+RECIPE_IMAGE_GENERATION_ENABLED=false
+RECIPE_GENERATION_ENABLED=true
+RECIPE_QUERY_MAX_LENGTH=200
+RECIPE_RESULT_LIMIT_MAX=10
 ```
-
-> **Note:** The default development settings use SQLite as the database. For production, consider using PostgreSQL or another production-grade database.
 
 ## Installation and Setup
 
@@ -410,9 +434,9 @@ POSTGRES_PORT=5432
    Create a `.env` file in the project root:
 
    ```bash
-   DJANGO_SECRET_KEY=your-development-secret-key
-   DJANGO_DEBUG=True
-   DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1
+   SECRET_KEY=your-development-secret-key
+   DEBUG=True
+   ALLOWED_HOSTS=localhost,127.0.0.1
    OPENAI_API_KEY=your-openai-api-key
    ```
 
@@ -482,9 +506,9 @@ The static files will be collected to the `staticfiles` directory and served by 
 For production deployment, ensure you:
 
 1. Set proper environment variables:
-   - Set `DJANGO_DEBUG=False`
-   - Set a strong `DJANGO_SECRET_KEY`
-   - Configure `DJANGO_ALLOWED_HOSTS`
+   - Set `DEBUG=False`
+   - Set a strong `SECRET_KEY`
+   - Configure `ALLOWED_HOSTS`
 
 2. Use a production-grade database (PostgreSQL recommended)
 
@@ -497,6 +521,11 @@ The Dockerfile uses Gunicorn to serve the app:
 ```dockerfile
 CMD ["gunicorn", "ai_cooking_project.wsgi:application", "--bind", "0.0.0.0:8000"]
 ```
+
+#### Important Security Note on Prompts Deployment
+To protect the integrity of the application's AI prompts, the core prompt definitions are isolated in a separate configuration file and intentionally excluded from version control via `.gitignore`. 
+
+**Action Required:** When deploying to a new production or staging server, this specific prompt configuration file will not be pulled automatically via Git. You must manually transfer this file to its designated location within the project directory on the server using secure file transfer methods (e.g., SFTP, SCP, or a secure CI/CD pipeline injection) for the recipe generation service to function properly.
 
 ## Recipe Generation
 
