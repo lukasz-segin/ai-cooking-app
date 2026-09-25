@@ -6,7 +6,9 @@ services:
     branch: master
     autoDeploy: false
     healthCheckPath: /healthz
-    preDeployCommand: python manage.py migrate
+    # Render runs preDeployCommand only on paid instances, so the free plan
+    # migrates in the start command. Both commands are safe to repeat.
+    dockerCommand: sh -c "python manage.py migrate --noinput && python manage.py createcachetable && gunicorn ai_cooking_project.wsgi:application --bind 0.0.0.0:$PORT --workers 2"
     envVars:
       - key: SECRET_KEY
         generateValue: true

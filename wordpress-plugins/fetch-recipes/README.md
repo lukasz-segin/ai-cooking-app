@@ -27,7 +27,7 @@
 2.  **Configuration (Important):**
     Open `fetch-recipes.php` and update the `$api_url` variable (approx. line 50) to point to your actual API endpoint if it differs from localhost:
     ```php
-    $api_url = '[http://your-django-app.com/api/recipes/](http://your-django-app.com/api/recipes/)';
+    $api_url = 'https://your-django-app.com/api/recipes/';
     ```
 3.  Activate the plugin through the WordPress admin dashboard.
 4.  Upon activation, the plugin will attempt an immediate fetch.
