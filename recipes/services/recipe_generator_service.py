@@ -311,7 +311,7 @@ class RecipeGeneratorService:
                 )
 
                 # 5. Tworzymy trwały, lokalny URL
-                # Zakładamy, że WordPress widzi Django pod localhost:8000
+                # public_base_url comes from the request, so WordPress gets a reachable URL
                 local_url = f"{public_base_url}{settings.MEDIA_URL}{saved_path}"
 
                 logger.info(f"Image saved locally at: {saved_path}")

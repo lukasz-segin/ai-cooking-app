@@ -39,6 +39,8 @@ jobs:
         run: pip install poetry
       - name: Install dependencies
         run: poetry install --no-root --no-interaction
+      - name: Check for missing migrations
+        run: poetry run python manage.py makemigrations --check --dry-run
       - name: Run tests
         run: poetry run python manage.py test
 
@@ -46,8 +48,11 @@ jobs:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    # Secrets cannot be used in a step `if:`, so expose the hook as env first.
+    # Until the Render service exists the secret is empty and the step is skipped.
+    env:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
     steps:
       - name: Deploy to Render
-        env:
-          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        if: env.RENDER_DEPLOY_HOOK_URL != ''
         run: curl --fail --silent --show-error --request POST "$RENDER_DEPLOY_HOOK_URL"

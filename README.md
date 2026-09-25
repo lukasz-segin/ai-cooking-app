@@ -1,209 +1,93 @@
-# ai-cooking-app
+# AI Cooking App
 
-**ai-cooking-app** is a Django REST Framework application designed to manage recipes with an AI-driven API. The project uses Python 3.12, Poetry for dependency management, and Docker for containerization, ensuring a robust, production-ready environment.
+[![CI](https://github.com/lukasz-segin/ai-cooking-app/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/lukasz-segin/ai-cooking-app/actions/workflows/ci.yml)
 
-## Live demo
+Django REST API with RAG over recipe PDFs: pgvector hybrid search, GPT-4o recipe generation and WordPress publishing.
 
-Public URL: _to be added after deploy._
+The app takes a library of recipe PDFs and turns it into a searchable knowledge base. It uses that knowledge base to write new recipes that are ready to publish.
 
-Screenshots:
+## What it does
 
-1. Landing page search
-2. Generated recipe
-3. Swagger UI at `/api/docs/`
+- **PDF ingestion.** Text is extracted with PyPDF2 or through Google Drive conversion (batched for large files), split into chunks and embedded with OpenAI `text-embedding-3-small`. Chunks are stored in PostgreSQL with pgvector.
+- **Hybrid search.** pgvector cosine similarity is combined with PostgreSQL full-text search. When keywords find nothing, the search falls back to semantic-only.
+- **RAG recipe generation.** The app retrieves chunks similar to a meal name and asks GPT-4o for a new structured recipe (ingredients, steps, nutrition), optionally with a DALL-E image. Prompts are versioned in `recipes/services/prompts.py`.
+- **Safe to expose publicly.** Throttling per endpoint, a shared daily generation cap, admin-only write endpoints and a switch that turns generation off without a deploy.
+- **WordPress publishing.** A custom plugin pulls generated recipes from the API and creates or updates posts, skipping recipes it already has.
 
 ## Architecture
 
-A search request embeds the query with OpenAI, then ranks document chunks with pgvector cosine distance plus keyword search. Recipe generation retrieves similar chunks, asks gpt-4o for a new recipe, and calls DALL-E only when image generation is enabled.
-
-## Overview
-
-- **API Endpoints:** Provides RESTful endpoints for listing and creating recipes.
-- **Admin Interface:** Uses Django Admin to manage recipes.
-- **Containerization:** Packaged using Docker and Docker Compose for consistent deployment.
-- **Dependency Management:** Managed with Poetry.
-- **Python Version:** Built using Python 3.12.
-- **AI-Powered Search:** Implements hybrid search combining semantic (vector) and keyword search.
-
-## Technologies
-
-- **Python:** 3.12
-- **Django:** 5.1.6
-- **Django REST Framework:** 3.15.2
-- **Poetry:** For dependency management
-- **Gunicorn:** For serving the Django application
-- **WhiteNoise:** For serving static files
-- **Docker & Docker Compose:** For containerization and deployment
-- **PostgreSQL with pgvector:** For storing and querying vector embeddings
-- **OpenAI API:** For generating text embeddings
-- **Google Drive API:** For processing documents from Google Drive
-
-## Project Structure
-
-```
-ai-cooking-app/
-├── ai_cooking_project/      # Django project folder
-│   ├── init.py
-│   ├── asgi.py             # ASGI configuration
-│   ├── settings.py         # Project settings
-│   ├── urls.py             # Main URL configuration
-│   └── wsgi.py             # WSGI configuration
-├── recipes/                 # App for managing recipes
-│   ├── init.py
-│   ├── apps.py             # App configuration
-│   ├── migrations/         # Database migrations
-│   │   └── 0001_initial.py
-│   ├── models.py           # Recipe model definition
-│   ├── serializers.py      # DRF serializers
-│   ├── urls.py             # API endpoints
-│   └── views.py            # API views
-├── documents_processor/     # App for processing documents
-│   ├── init.py
-│   ├── apps.py
-│   ├── migrations/
-│   ├── models.py           # Document models
-│   ├── serializers.py
-│   ├── services/           # Document processing services
-│   │   ├── file_processor_service.py
-│   │   ├── google_drive_service.py
-│   │   ├── openai_service.py
-│   │   ├── text_splitter_service.py
-│   │   └── vector_service.py
-│   ├── urls.py
-│   └── views.py
-├── documents/              # Directory for document storage
-├── Dockerfile              # Dockerfile for containerization
-├── docker-compose.local.yml # Local development configuration
-├── pyproject.toml          # Poetry dependencies and config
-├── poetry.lock             # Lock file for dependencies
-└── README.md               # Project documentation
+```mermaid
+flowchart LR
+    PDF[Recipe PDFs] --> Extract[Text extraction<br/>PyPDF2 / Google Drive]
+    Extract --> Chunk[Chunking]
+    Chunk --> Embed[OpenAI embeddings]
+    Embed --> DB[(PostgreSQL + pgvector)]
+    Query[Meal name] --> Search[Hybrid search<br/>vector + full-text]
+    DB --> Search
+    Search --> LLM[GPT-4o generation]
+    LLM --> Recipe[(Recipe)]
+    Recipe --> API[REST API]
+    API --> WP[WordPress plugin]
 ```
 
-## API Endpoints
+| Path | What lives there |
+| --- | --- |
+| `documents_processor/` | Document models, PDF processing, chunking, embeddings, vector search |
+| `recipes/` | Recipe model, search and generation endpoints, prompts |
+| `ai_cooking_project/` | Settings, URLs, landing page, health check |
+| `wordpress-plugins/fetch-recipes/` | WordPress plugin that imports recipes ([README](wordpress-plugins/fetch-recipes/README.md)) |
 
-The application provides the following REST API endpoints:
+## Tech stack
 
-### Recipes
-- `GET /api/recipes/` - List all recipes
-- `POST /api/recipes/` - Create a new recipe
-- `GET /api/recipes/{id}/` - Retrieve a specific recipe
-- `PUT /api/recipes/{id}/` - Update a specific recipe
-- `DELETE /api/recipes/{id}/` - Delete a specific recipe
-- `GET /api/recipes/search/?meal_name={query}&limit={limit}` - Search for recipes using hybrid search
+- **Backend:** Python 3.12, Django 5, Django REST Framework, drf-spectacular (OpenAPI)
+- **Data:** PostgreSQL with pgvector, full-text search, Django database cache for throttling
+- **AI:** OpenAI API (GPT-4o, `text-embedding-3-small`, DALL-E 3)
+- **Infrastructure:** Docker, Gunicorn, WhiteNoise, GitHub Actions, Render + Neon (see [DEPLOY.md](DEPLOY.md))
+- **Integration:** Google Drive API (optional), PHP WordPress plugin
 
-### Document Processing
-- `POST /api/documents/process_document/` - Process a PDF document
-- `POST /api/documents/process_with_google_drive_batched/` - Process a PDF document in batches using Google Drive
-- `GET /api/documents/` - List all processed documents
-- `GET /api/documents/{document_id}/` - Get document processing status
+## Quick start (Docker)
 
-## Document Processing
-
-The application includes a document processor that can:
-- Process PDF files containing recipes from local storage or Google Drive
-- Extract text content using PyPDF2 or Google Drive's conversion capabilities
-- Split content into manageable chunks
-- Generate embeddings using OpenAI's text-embedding-3-large model (3072 dimensions)
-- Store documents and their vector embeddings in PostgreSQL with pgvector
-- Enable hybrid search using both vector similarity and full-text search
-
-### Setting up Document Processing
-
-1. **Configure Required Services:**
-
-   Ensure you have the following credentials:
-   - OpenAI API key (for generating embeddings)
-   - Google Drive API credentials (for enhanced document processing)
-
-2. **Google Drive Setup:**
-
-   - Create a service account in Google Cloud Console
-   - Download the service account key as JSON
-   - Place it in your project root as `service-account.json`
-   - Add the following to your environment variables:
-     ```
-     GOOGLE_SERVICE_ACCOUNT_FILE=service-account.json
-     ```
-
-3. **Process a Document:**
-
-   You can process documents in two ways:
-
-   a) From local storage:
-   ```bash
-   curl -X POST http://localhost:8000/api/documents/process_document/ \
-      -H "Content-Type: application/json" \
-      -d '{"file_name": "your-document.pdf", "use_google_drive": true}'
-
-   b) Process with Google Drive in batches (recommended for larger documents):
-   ```bash
-   # Process with Google Drive in batches
-   curl -X POST http://localhost:8000/api/documents/process_with_google_drive_batched/ \
-      -H "Content-Type: application/json" \
-      -d '{"file_name": "your-document.pdf", "batch_size": 15}'
-   ```
-   
-   Example response:
-   ```json
-   {
-     "message": "Document processing started with Google Drive (batched mode)",
-     "document_id": "2eff81cf-cc97-4911-a754-374b635c3ba2",
-     "batch_size": 15
-   }
-   ```
-
-   c) From Google Drive:
-   ```bash
-   curl -X POST http://localhost:8000/api/documents/process_drive_document/ \
-        -H "Content-Type: application/json" \
-        -d '{"drive_file_id": "your-google-drive-file-id"}'
-   ```
-
-   The system will:
-   1. Create a StoredDocument entry with 'pending' status
-   2. Process the PDF using either PyPDF2 or Google Drive's conversion
-   3. Split the text into chunks
-   4. Generate embeddings using OpenAI (3072-dimensional vectors)
-   5. Store the chunks with embeddings in the database
-   6. Update the document status to 'processed'
-
-4. **Monitor Processing:**
-
-   Check the document status using:
-   ```bash
-   curl http://localhost:8000/api/documents/{document_id}/
-   ```
-
-   Or view processing logs:
-   ```bash
-   docker compose -f docker-compose.local.yml logs -f web
-   ```
-
-   List all documents:
-   ```bash
-   curl http://localhost:8000/api/documents/
-   ```
-
-
-## Searching Documents
-
-The application implements a hybrid search system that combines vector-based semantic search with traditional full-text search for optimal results.
-
-### Hybrid Search
-
-The search functionality:
-- Uses OpenAI embeddings for semantic understanding
-- Leverages PostgreSQL's full-text search for keyword matching
-- Combines both approaches with a weighted scoring system
-- Falls back to pure vector search when text search yields no results
-
-### Using the Search API
-To search for recipes or documents:
 ```bash
-curl -X GET "http://localhost:8000/api/recipes/search/?meal_name=nocna%20owsianka&limit=3"
+git clone https://github.com/lukasz-segin/ai-cooking-app.git
+cd ai-cooking-app
+cp .env.example .env          # set SECRET_KEY and OPENAI_API_KEY
+docker compose -f docker-compose.local.yml up --build
+docker compose -f docker-compose.local.yml exec web python manage.py createcachetable
+docker compose -f docker-compose.local.yml exec web python manage.py createsuperuser
 ```
 
-Example response:
+Compose starts PostgreSQL with pgvector and runs migrations on startup. Then open:
+
+- http://localhost:8000/ for the landing page
+- http://localhost:8000/api/docs/ for Swagger UI
+- http://localhost:8000/admin/ for Django admin (documents, chunks, recipes)
+- http://localhost:8000/healthz for the health check
+
+A fresh checkout has no recipe data. Put your own PDFs in `documents/` and process them (see below) before search and generation return results.
+
+To run without Docker, install PostgreSQL with the `vector` extension, then run `poetry install`, `poetry run python manage.py migrate`, `createcachetable` and `runserver`.
+
+## API
+
+Full interactive docs are at `/api/docs/` (schema at `/api/schema/`).
+
+| Method | Endpoint | Access | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/recipes/` | public | List recipes |
+| `POST` | `/api/recipes/` | staff | Create a recipe |
+| `GET` | `/api/recipes/search/?meal_name=&limit=` | public, throttled | Hybrid search over document chunks |
+| `POST` | `/api/recipes/generate/` | public, throttled + daily cap | Generate a new recipe with RAG |
+| `GET` | `/api/documents/`, `/api/documents/{id}/` | staff | Processed documents and their status |
+| `POST` | `/api/documents/process_document/` | staff | Process a PDF from `documents/` |
+| `POST` | `/api/documents/process_with_google_drive_batched/` | staff | Process a large PDF in batches through Google Drive |
+| `POST` | `/api/documents/process_drive_document/` | staff | Process a PDF already in Google Drive |
+
+### Search
+
+```bash
+curl "http://localhost:8000/api/recipes/search/?meal_name=nocna%20owsianka&limit=3"
+```
+
 ```json
 {
   "query": "nocna owsianka",
@@ -211,326 +95,18 @@ Example response:
   "results": [
     {
       "chunk_id": 1,
-      "document_id": "2eff81cf-cc97-4911-a754-374b635c3ba2",
-      "document_title": "Nocna owsianka _ AniaGotuje.pl.pdf",
-      "content": "3/5/25, 8:55 PM Nocna owsianka | AniaGotuje.pl \r\nAnia Gotuje...",
-      "chunk_index": 0,
+      "document_title": "Nocna owsianka.pdf",
+      "content": "…",
       "vector_similarity": 0.9124,
       "text_match_score": 0.753,
       "combined_score": 0.7826,
-      "search_method": "hybrid"
-    },
-    {
-      "chunk_id": 2,
-      "document_id": "2eff81cf-cc97-4911-a754-374b635c3ba2",
-      "document_title": "Nocna owsianka _ AniaGotuje.pl.pdf",
-      "content": "is/nocna-owsianka 2/4\r\n3/5/25, 8:55 PM Nocna owsianka | AniaGotuje.pl...",
-      "chunk_index": 1,
-      "vector_similarity": 0.8947,
-      "text_match_score": 0.689,
-      "combined_score": 0.7231,
       "search_method": "hybrid"
     }
   ]
 }
 ```
 
-### Search Parameters
-- `meal_name` - The search query text
-- `limit` - Maximum number of results to return (default: 5)
-
-### Search Fields in Response
-Each result includes:
-- `chunk_id` - ID of the document chunk
-- `document_id` - ID of the parent document
-- `document_title` - Title of the document
-- `content` - Text content of the chunk
-- `chunk_index` - Index of the chunk within the document
-- `vector_similarity` - Score indicating semantic similarity (0-1, higher is better)
-- `text_match_score` - Score indicating keyword match relevance
-- `combined_score` - Weighted combination of both scores
-- `search_method` - Whether the result was found via "hybrid" or "semantic" search
-
-### Database Setup
-
-The document processor requires PostgreSQL with pgvector extension. The setup is automatically handled in the Docker environment:
-
-1. The `ankane/pgvector` image is used which includes the pgvector extension
-2. An initialization script creates the vector extension during first startup
-3. Django migrations will create all necessary tables
-
-If you need to reset the database:
-```bash
-# Stop containers and remove volumes
-docker compose -f docker-compose.local.yml down -v
-
-# Rebuild and start
-docker compose -f docker-compose.local.yml up --build
-```
-OR
-```bash
-# Stop all containers and remove volumes
-docker compose -f docker-compose.local.yml down -v
-
-# Remove all images to ensure clean rebuild
-docker rmi $(docker images -q ai-cooking-app-web)
-
-# Rebuild and start with no cache
-docker compose -f docker-compose.local.yml build --no-cache
-docker compose -f docker-compose.local.yml up
-```
-
-If running locally (without Docker), you'll need to:
-1. Install PostgreSQL
-2. Install pgvector extension:
-   ```sql
-   CREATE EXTENSION vector;
-   ```
-3. Create the database and user
-4. Run migrations:
-   ```bash
-   python manage.py migrate
-   ```
-
-### Local document data
-
-Cookbook JSON fixtures are not part of this repository. Keep them only on your machine under `private_data/` (that directory is gitignored). A public checkout has no sample recipes, so search returns no hits until you load your own data.
-
-Older commits still contain those files. This repository does not rewrite that history.
-
-To load a local fixture you already have:
-
-```bash
-poetry run python manage.py loaddata private_data/your_fixture_name.json
-```
-
-## Django Admin Interface
-
-The project includes a comprehensive Django Admin interface for managing both recipes and document processing:
-
-### Document Management Admin Features
-
-Access the admin interface at [http://localhost:8000/admin/](http://localhost:8000/admin/) after creating a superuser.
-
-1. **Document List View**: 
-   - View all processed documents with their status
-   - See document chunk counts with direct links
-   - Filter by processing status and creation date
-   - Search by title or description
-
-2. **Document Detail View**:
-   - View document metadata and processing status
-   - See inline previews of all chunks within the document
-   - Track processing timestamps
-
-3. **Document Chunk Management**:
-   - Browse all text chunks from processed documents
-   - See content previews with smart truncation
-   - Filter chunks by parent document
-   - View embedding dimensions for each chunk
-   - Navigate between related documents and chunks
-
-This admin interface provides a convenient way to:
-- Monitor document processing status
-- Review extracted content quality
-- Debug processing issues
-- Manage your document database
-
-### Accessing the Admin Interface
-
-1. Create a superuser if you haven't already:
-   ```bash
-   # In Docker
-   docker compose -f docker-compose.local.yml exec web python manage.py createsuperuser
-   
-   # In local environment
-   poetry run python manage.py createsuperuser
-   ```
-
-2. Visit [http://localhost:8000/admin/](http://localhost:8000/admin/) and log in with your credentials
-
-3. Navigate to "Stored documents" or "Document chunks" in the admin panel
-
-## API access and cost limits
-
-Anonymous callers can list recipes and call search. Creating recipes, and every document write or processing action (`process_document`, `process_drive_document`, `process_with_google_drive_batched`), require a staff user (`IsAdminUser`).
-
-`POST /api/recipes/generate/` stays anonymous so a demo can try it. It is limited by the `generate` throttle (per IP) and by `THROTTLE_GENERATE_DAILY_CAP` (one shared counter for the whole app). Set `RECIPE_GENERATION_ENABLED=false` to turn the endpoint off (HTTP 503) without a deploy. DALL-E runs only when `RECIPE_IMAGE_GENERATION_ENABLED=true`; otherwise the recipe is returned with an empty `image_url`.
-
-Throttling uses Django's database cache (`django_cache`) so the limits are shared by every gunicorn worker. Create that table once:
-
-```bash
-python manage.py createcachetable
-```
-
-Behind a reverse proxy set `NUM_PROXIES` (Render uses `1`) so the throttle key is the client IP from `X-Forwarded-For`.
-
-Before a public demo, set a monthly spending limit on the OpenAI key in the OpenAI dashboard, and use a separate API key that is only for this demo.
-
-## Environment Variables
-
-Names match `SettingsFromEnvironment` in `ai_cooking_project/settings.py`. `SECRET_KEY` is required and must not be empty or a `django-insecure-` value.
-
-```bash
-SECRET_KEY=your-secret-key-here
-DEBUG=False
-ALLOWED_HOSTS=your-domain.com
-CSRF_TRUSTED_ORIGINS=https://your-domain.com
-OPENAI_API_KEY=your-openai-api-key
-POSTGRES_DB=ai_cooking
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_HOST=db
-POSTGRES_PORT=5432
-NUM_PROXIES=1
-THROTTLE_ANON=100/day
-THROTTLE_USER=1000/day
-THROTTLE_SEARCH=30/hour
-THROTTLE_GENERATE=5/hour
-THROTTLE_GENERATE_DAILY_CAP=50
-RECIPE_IMAGE_GENERATION_ENABLED=false
-RECIPE_GENERATION_ENABLED=true
-RECIPE_QUERY_MAX_LENGTH=200
-RECIPE_RESULT_LIMIT_MAX=10
-```
-
-## Installation and Setup
-
-### Prerequisites
-
-- **Python 3.12:** Ensure Python 3.12 is installed (locally or in your Docker base image).
-- **Poetry:** Install via [Poetry installation guide](https://python-poetry.org/docs/#installation).
-- **Docker & Docker Compose:** Install following [Docker's documentation](https://docs.docker.com/compose/).
-
-### Local Setup with Poetry
-
-1. **Clone the Repository:**
-
-   ```bash
-   git clone git@github.com:lukasz-segin/ai-cooking-app.git
-   cd ai-cooking-app
-   ```
-
-2. **Configure Python Environment:**
-
-   Make sure Poetry uses Python 3.12:
-
-   ```bash
-   poetry env use python3.12
-   poetry install
-   ```
-
-3. **Set Environment Variables:**
-
-   Create a `.env` file in the project root:
-
-   ```bash
-   SECRET_KEY=your-development-secret-key
-   DEBUG=True
-   ALLOWED_HOSTS=localhost,127.0.0.1
-   OPENAI_API_KEY=your-openai-api-key
-   ```
-
-4. **Run Migrations:**
-
-   ```bash
-   poetry run python manage.py makemigrations
-   poetry run python manage.py migrate
-   ```
-
-   With docker:
-   ```bash
-   docker compose -f docker-compose.local.yml exec web python manage.py makemigrations
-   docker compose -f docker-compose.local.yml exec web python manage.py migrate
-   ```
-
-5. **Create a Superuser:**
-
-   ```bash
-   poetry run python manage.py createsuperuser
-   ```
-
-6. **Start the Development Server:**
-
-   ```bash
-   poetry run python manage.py runserver
-   ```
-
-   Access the API at [http://localhost:8000/api/recipes/](http://localhost:8000/api/recipes/) and the Django Admin at [http://localhost:8000/admin/](http://localhost:8000/admin/).
-
-### Running with Docker
-
-#### Build and Start Containers
-
-1. **Build the Docker Image:**
-
-   ```bash
-   docker compose -f docker-compose.local.yml build --no-cache
-   ```
-
-2. **Start the Containers:**
-
-   ```bash
-   docker compose -f docker-compose.local.yml up
-   ```
-
-   The application should be accessible at [http://localhost:8000/](http://localhost:8000/).
-
-#### Create a Superuser in Docker
-
-```bash
-docker compose -f docker-compose.local.yml run --rm web python manage.py createsuperuser
-```
-
-### Static Files
-
-Static files are handled by WhiteNoise, which is already configured in the project. To collect static files:
-
-```bash
-poetry run python manage.py collectstatic --noinput
-```
-
-The static files will be collected to the `staticfiles` directory and served by WhiteNoise in production.
-
-### Production Deployment
-
-For production deployment, ensure you:
-
-1. Set proper environment variables:
-   - Set `DEBUG=False`
-   - Set a strong `SECRET_KEY`
-   - Configure `ALLOWED_HOSTS`
-
-2. Use a production-grade database (PostgreSQL recommended)
-
-3. Configure proper logging
-
-4. Set up proper SSL/TLS certificates
-
-The Dockerfile uses Gunicorn to serve the app:
-
-```dockerfile
-CMD ["gunicorn", "ai_cooking_project.wsgi:application", "--bind", "0.0.0.0:8000"]
-```
-
-#### Important Security Note on Prompts Deployment
-To protect the integrity of the application's AI prompts, the core prompt definitions are isolated in a separate configuration file and intentionally excluded from version control via `.gitignore`. 
-
-**Action Required:** When deploying to a new production or staging server, this specific prompt configuration file will not be pulled automatically via Git. You must manually transfer this file to its designated location within the project directory on the server using secure file transfer methods (e.g., SFTP, SCP, or a secure CI/CD pipeline injection) for the recipe generation service to function properly.
-
-## Recipe Generation
-
-The application includes an AI-powered recipe generation feature that creates new recipes based on existing similar recipes. The generation process:
-
-1. Searches for similar recipes based on your query
-2. Analyzes recipe content from matching documents
-3. Generates a new recipe using the LLM (GPT-4o)
-4. Creates a visual representation of the dish using DALL-E 3
-5. Returns a complete recipe with ingredients, instructions, and an image
-
-### Using the Recipe Generation API
-
-To generate a recipe:
+### Generate a recipe
 
 ```bash
 curl -X POST http://localhost:8000/api/recipes/generate/ \
@@ -538,91 +114,50 @@ curl -X POST http://localhost:8000/api/recipes/generate/ \
      -d '{"query": "nocna owsianka z borówkami", "num_examples": 5}'
 ```
 
-Example response:
 ```json
 {
   "status": "success",
   "recipe": {
     "id": 1,
     "title": "Nocna owsianka z borówkami",
-    "description": "Pyszna i pożywna nocna owsianka z borówkami, idealna na szybkie i zdrowe śniadanie.",
-    "instructions": "# Ingredients\n- 100 g płatków owsianych\n- 200 ml mleka lub napoju roślinnego\n- 2 łyżki jogurtu naturalnego\n- 1 łyżka nasion chia\n- 1 łyżka miodu lub syropu z cykorii\n- 100 g borówek\n- 2 łyżki wiórków kokosowych\n\n# Instructions\n1. Do słoika o pojemności około 450 ml wsyp 100 g płatków owsianych.\n2. Dodaj 200 ml mleka lub napoju roślinnego oraz 2 łyżki jogurtu naturalnego.\n3. Wsyp 1 łyżkę nasion chia i 1 łyżkę miodu lub syropu z cykorii.\n4. Całość dokładnie wymieszaj, aby wszystkie składniki były dobrze połączone.\n5. Dodaj 100 g borówek i 2 łyżki wiórków kokosowych na wierzch.\n6. Słoik zakręć i odstaw do lodówki na co najmniej 6 godzin, najlepiej na całą noc.\n\n# Nutritional Information\nCalories: 520\nProtein: 15\nCarbs: 85\nFat: 12\n\nPrep Time: 15 minutes\nCook Time: 0 minutes",
-    "image_url": "https://oaidalleapiprodscus.blob.core.windows.net/private/org-123/user-456/img-789.jpg"
+    "description": "Pyszna i pożywna nocna owsianka z borówkami…",
+    "instructions": "# Ingredients\n- 100 g płatków owsianych\n…\n# Instructions\n1. …",
+    "image_url": ""
   },
   "similar_recipes_used": [
-    {
-      "document_title": "Nocna owsianka _ AniaGotuje.pl.pdf",
-      "similarity_score": 0.5794
-    },
-    {
-      "document_title": "Nocna owsianka w 6 wersjach – ciekawe owsianki do pracy i szkoły – Policzona Szama.pdf",
-      "similarity_score": 0.5675
-    },
-    {
-      "document_title": "Nocna owsianka _ AniaGotuje.pl.pdf", 
-      "similarity_score": 0.567
-    }
+    { "document_title": "Nocna owsianka.pdf", "similarity_score": 0.5794 }
   ],
   "recipe_query": "nocna owsianka z borówkami"
 }
 ```
 
-### Recipe Generation Parameters
+Recipes are generated in Polish, and they use only ingredients and techniques from the retrieved examples. `num_examples` defaults to 3 (max 10).
 
-- `query` - The recipe name or description to generate (required)
-- `num_examples` - Number of similar recipes to use as examples (default: 3, max: 10)
+## Security and cost limits
 
-### Recipe Generation Response Fields
+The generation endpoint calls a paid API, so the public API is locked down:
 
-The response includes:
-- `status` - Success or error status
-- `recipe` - The generated recipe with complete details:
-  - `id` - Database ID of the saved recipe
-  - `title` - Recipe title in Polish
-  - `description` - Brief description of the dish
-  - `instructions` - Formatted recipe with ingredients, steps, and nutritional info
-  - `image_url` - URL to the AI-generated image of the dish
-- `similar_recipes_used` - List of reference recipes used for generation
-- `recipe_query` - The original query used for generation
+- Anyone can list recipes and call search or generate. Creating recipes and every document action require a staff user.
+- Throttling per IP: `THROTTLE_SEARCH`, `THROTTLE_GENERATE`, plus `THROTTLE_ANON` / `THROTTLE_USER`. The limits are stored in the database cache, so all Gunicorn workers share them.
+- `THROTTLE_GENERATE_DAILY_CAP` is one counter for the whole app, whoever is calling.
+- `RECIPE_GENERATION_ENABLED=false` makes generation return HTTP 503 without calling OpenAI.
+- `RECIPE_IMAGE_GENERATION_ENABLED` is off by default, so DALL-E only runs when you turn it on.
+- Set `NUM_PROXIES` behind a reverse proxy so throttling uses the real client IP.
 
-### Notes on Recipe Generation
+All settings are in [`.env.example`](.env.example) and are read by `SettingsFromEnvironment` in `ai_cooking_project/settings.py`. `SECRET_KEY` is required and must not be a `django-insecure-` value.
 
-- The generated recipes are in Polish language
-- Recipes strictly use only ingredients and techniques from the example recipes
-- The feature works best when there are similar recipes already in the database
-- Image generation creates a styled photo of the dish based on the recipe details
+## Tests and CI
 
-## WordPress Plugin Integration (Production Deployment)
-
-The project includes a custom WordPress plugin (`fetch-recipes.php`) designed to automatically pull generated recipes from the Django API and map them into the **WP Delicious** plugin format.
-
-To ensure the integration works correctly in a production environment, you must configure both Django and WordPress as follows:
-
-### 1. Django Configuration (Media URLs)
-Currently, in development, the `recipe_generator_service.py` hardcodes the local image URL (e.g., `http://localhost:8000/media/...`). In production, Django must return a valid, absolute public URL so that WordPress can download the image.
-
-**Action Required:**
-Update your `recipe_generator_service.py` or `.env` file to use a dynamic host domain for generated images:
-```python
-# Instead of hardcoding localhost:8000:
-# local_url = f"http://localhost:8000{settings.MEDIA_URL}{saved_path}"
-
-# Use a dynamic production URL (configured via environment variables):
-domain = getattr(settings, 'PUBLIC_DOMAIN', '[https://api.your-domain.com](https://api.your-domain.com)')
-local_url = f"{domain}{settings.MEDIA_URL}{saved_path}"
-
+```bash
+poetry run python manage.py test
 ```
 
-### 2. WordPress Plugin Configuration
+GitHub Actions runs the test suite against PostgreSQL with pgvector on every push and pull request. A push to `master` deploys to Render only after the tests pass.
 
-Before deploying the `fetch-recipes` plugin to a production WordPress instance, update the variables inside `fetch-recipes.php`:
+## Deployment
 
-* **API Endpoint:** Change `$api_url = 'http://localhost:8000/api/recipes/';` to your production Django API endpoint (e.g., `https://api.your-domain.com/api/recipes/`).
-* *Note: If WordPress and Django share the same internal Docker network, you can use the internal service name (e.g., `http://web:8000/api/recipes/`), provided the Docker network DNS can resolve it.*
+See [DEPLOY.md](DEPLOY.md) for the Render + Neon setup, secrets, cost controls and shutdown steps.
 
+## Data
 
-* **Security (SSL):** The plugin currently disables SSL verification (`'sslverify' => false`) to accommodate local development. In production, change this to `'sslverify' => true` in both instances of `wp_remote_get()` to ensure secure HTTPS communication.
-
-### 3. Media Serving
-
-Ensure your production Django environment (e.g., Nginx, AWS S3, or Gunicorn with WhiteNoise/media setup) correctly serves files from the `/media/` directory to the public internet, otherwise WordPress will fail to download the `image_url` returned by the API.
+Cookbook PDFs and JSON fixtures are not part of this repository. Keep them locally in `documents/` or `private_data/` (both gitignored). Older commits still contain some of those fixtures. The history has not been rewritten.
