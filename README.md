@@ -278,40 +278,17 @@ If running locally (without Docker), you'll need to:
    python manage.py migrate
    ```
 
-### Using Document Fixtures
+### Local document data
 
-The project includes a pre-processed document fixture that contains recipe data, which can be loaded into your database:
+Cookbook JSON fixtures are not part of this repository. Keep them only on your machine under `private_data/` (that directory is gitignored). A public checkout has no sample recipes, so search returns no hits until you load your own data.
 
-1. **Load the Recipe Document Fixture:**
+Older commits still contain those files. This repository does not rewrite that history.
 
-   ```bash
-   # In Docker environment
-   docker compose -f docker-compose.local.yml exec web python manage.py loaddata recipe_book_chunks
-   
-   # In local environment
-   poetry run python manage.py loaddata recipe_book_chunks
-   ```
+To load a local fixture you already have:
 
-   This will populate your database with:
-   - A processed recipe document
-   - Document chunks with extracted text
-   - Vector embeddings for semantic search capabilities
-
-2. **Create Your Own Fixtures:**
-
-   After processing your own documents, you can create fixtures to reuse the data:
-
-   ```bash
-   # Export document data as fixture
-   docker compose -f docker-compose.local.yml exec web bash -c "python manage.py dumpdata documents_processor.StoredDocument documents_processor.DocumentChunk --indent 4 > /app/documents_processor/fixtures/your_fixture_name.json"
-   
-   # Load your fixture
-   docker compose -f docker-compose.local.yml exec web python manage.py loaddata your_fixture_name
-   ```
-
-3. **Automate Fixture Loading:**
-
-   To automatically load fixtures when deploying, add the loaddata command to your deployment scripts or Docker entrypoint.
+```bash
+poetry run python manage.py loaddata private_data/your_fixture_name.json
+```
 
 ## Django Admin Interface
 

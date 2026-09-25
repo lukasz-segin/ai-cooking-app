@@ -60,6 +60,7 @@ Thumbs.db
 service-account.json
 documents/*
 !documents/.gitkeep
+private_data/
 
 # Local development
 __pycache__/
