@@ -20,10 +20,11 @@ from django.conf import settings
 from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
-from ai_cooking_project.views import home
+from ai_cooking_project.views import healthz, home
 
 urlpatterns = [
     path("", home, name="home"),
+    path("healthz", healthz, name="healthz"),
     path("admin/", admin.site.urls),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(

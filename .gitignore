@@ -28,8 +28,7 @@ db.sqlite3-journal
 media/
 staticfiles/
 
-# Poetry
-poetry.lock
+# Poetry lock is tracked so Docker and CI install the same versions.
 
 # Virtual Environment
 .env

@@ -126,6 +126,11 @@ class DemoSurfaceTests(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("openapi", response.data)
 
+    def test_healthz_checks_database(self):
+        response = self.client.get("/healthz")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "ok")
+
 
 class RecipeImageFlagTests(APITestCase):
     @override_settings(RECIPE_IMAGE_GENERATION_ENABLED=False)

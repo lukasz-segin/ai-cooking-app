@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os
 import sys
+from urllib.parse import unquote, urlparse
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
@@ -159,16 +160,31 @@ WSGI_APPLICATION = "ai_cooking_project.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
-DATABASES = {
-    "default": {
+def database_from_url(database_url):
+    parsed = urlparse(database_url)
+    return {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config.POSTGRES_DB,
-        "USER": config.POSTGRES_USER,
-        "PASSWORD": config.POSTGRES_PASSWORD,
-        "HOST": config.POSTGRES_HOST,
-        "PORT": config.POSTGRES_PORT,
+        "NAME": parsed.path.lstrip("/"),
+        "USER": unquote(parsed.username or ""),
+        "PASSWORD": unquote(parsed.password or ""),
+        "HOST": parsed.hostname or "",
+        "PORT": parsed.port or 5432,
     }
-}
+
+
+if config.DATABASE_URL:
+    DATABASES = {"default": database_from_url(config.DATABASE_URL)}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": config.POSTGRES_DB,
+            "USER": config.POSTGRES_USER,
+            "PASSWORD": config.POSTGRES_PASSWORD,
+            "HOST": config.POSTGRES_HOST,
+            "PORT": config.POSTGRES_PORT,
+        }
+    }
 
 
 # Password validation
