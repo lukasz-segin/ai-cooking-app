@@ -12,7 +12,7 @@ The app takes a library of recipe PDFs and turns it into a searchable knowledge 
 - **Hybrid search.** pgvector cosine similarity is combined with PostgreSQL full-text search. When keywords find nothing, the search falls back to semantic-only.
 - **RAG recipe generation.** The app retrieves chunks similar to a meal name and asks GPT-4o for a new structured recipe (ingredients, steps, nutrition), optionally with a DALL-E image. Prompts are versioned in `recipes/services/prompts.py`.
 - **Safe to expose publicly.** Throttling per endpoint, a shared daily generation cap, admin-only write endpoints and a switch that turns generation off without a deploy.
-- **WordPress publishing.** A custom plugin pulls generated recipes from the API and creates or updates posts, skipping recipes it already has.
+- **WordPress publishing.** A custom plugin pulls generated recipes from the API into a WordPress recipe site as [WP Delicious](https://wordpress.org/plugins/delicious-recipes/) recipes (ingredients, steps, times, taxonomies, featured image), on an hourly schedule or on demand, and updates only recipes that changed.
 
 ## Architecture
 
@@ -35,7 +35,7 @@ flowchart LR
 | `documents_processor/` | Document models, PDF processing, chunking, embeddings, vector search |
 | `recipes/` | Recipe model, search and generation endpoints, prompts |
 | `ai_cooking_project/` | Settings, URLs, landing page, health check |
-| `wordpress-plugins/fetch-recipes/` | WordPress plugin that imports recipes ([README](wordpress-plugins/fetch-recipes/README.md)) |
+| `wordpress-plugins/fetch-recipes/` | WordPress plugin that imports recipes into WP Delicious ([README](wordpress-plugins/fetch-recipes/README.md)) |
 
 ## Tech stack
 
